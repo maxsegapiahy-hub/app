@@ -28,7 +28,11 @@ const config: ExpoConfig = {
     permissions: ["POST_NOTIFICATIONS"],
   },
   web: { bundler: "metro", output: "static", favicon: "./assets/images/favicon.png" },
-  plugins: ["expo-router", ["expo-splash-screen", { image: "./assets/images/splash-icon.png", imageWidth: 200, resizeMode: "contain", backgroundColor: "#080808" }]],
+  plugins: [
+    "expo-router",
+    ["expo-location", { locationWhenInUsePermission: "Permita que a Max Seg use sua localização para acionar a pronta resposta SOS." }],
+    ["expo-splash-screen", { image: "./assets/images/splash-icon.png", imageWidth: 200, resizeMode: "contain", backgroundColor: "#080808" }],
+  ],
   experiments: { typedRoutes: true, reactCompiler: true },
 };
 

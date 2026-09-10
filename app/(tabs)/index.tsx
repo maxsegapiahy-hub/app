@@ -1,7 +1,9 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useMemo, useRef, useState } from "react";
+import * as Location from "expo-location";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Alert,
   FlatList,
   Linking,
@@ -16,7 +18,7 @@ import {
 } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
-import { filterByCategory, getMaxAiReply } from "@/shared/max-seg";
+import { filterByCategory, formatSosCoordinates, getMaxAiReply } from "@/shared/max-seg";
 
 const C = {
   bg: "#080808",
@@ -36,6 +38,7 @@ const C = {
 };
 
 type Tab = "home" | "carteira" | "afiliado" | "clube" | "pins" | "telemedicina";
+type SosLocation = { latitude: number; longitude: number; accuracy: number | null };
 
 type Merchant = {
   id: string;
@@ -235,11 +238,24 @@ function HomeView({ onNavigate, onSos, onAi }: { onNavigate: (tab: Tab) => void;
 
 function WalletView({ onQr }: { onQr: () => void }) {
   const [flipped, setFlipped] = useState(false);
+  const flipProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(flipProgress, {
+      toValue: flipped ? 1 : 0,
+      duration: 520,
+      useNativeDriver: true,
+    }).start();
+  }, [flipProgress, flipped]);
+
+  const frontRotate = flipProgress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] });
+  const backRotate = flipProgress.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "360deg"] });
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.centerBlock}><Text style={styles.pageTitle}>Carteira Virtual Max Club</Text><Text style={styles.pageSubtitle}>Toque no cartão para girar e ver o verso com QR Code</Text></View>
-      <Pressable onPress={() => { triggerHaptic(); setFlipped((value) => !value); }} style={({ pressed }) => [styles.vipCard, flipped && styles.vipCardBack, pressed && styles.pressed]} accessibilityLabel="Girar cartão virtual">
-        {!flipped ? (
+      <Pressable onPress={() => { triggerHaptic(Haptics.ImpactFeedbackStyle.Medium); setFlipped((value) => !value); }} style={({ pressed }) => [styles.vipCard, pressed && styles.pressed]} accessibilityLabel="Girar cartão virtual">
+        <Animated.View style={[styles.cardLayer, { transform: [{ rotateY: frontRotate }] }]}>
           <View style={styles.cardFace}>
             <View style={styles.goldLine} />
             <View style={styles.rowBetween}><View style={styles.brandRow}><View style={styles.miniLogo}><MaterialIcons name="shield" size={17} color={C.gold} /></View><View><Text style={styles.vipBrand}>MAX CLUB</Text><Text style={styles.vipCaption}>APIAHY VIP MEMBER</Text></View></View><View style={styles.hologram}><Text style={styles.hologramText}>MAX{`\n`}TOTAL</Text></View></View>
@@ -247,13 +263,14 @@ function WalletView({ onQr }: { onQr: () => void }) {
             <View style={styles.rowBetween}><View><Text style={styles.vipCaption}>TITULAR DO CARTÃO</Text><Text style={styles.memberName}>CARLOS ED. SILVA</Text><Text style={styles.memberId}>ID: MAX-8842-AP</Text></View><Pill color={C.success}>● VIP ATIVO</Pill></View>
             <View style={styles.goldLineBottom} />
           </View>
-        ) : (
+        </Animated.View>
+        <Animated.View style={[styles.cardLayer, styles.vipCardBack, { transform: [{ rotateY: backRotate }] }]}>
           <View style={styles.backFace}>
             <View style={styles.magStripe} />
             <View style={styles.qrRow}><QrCode size={112} /><View style={{ flex: 1, marginLeft: 14 }}><Text style={styles.qrTitle}>Validação no comércio de Apiaí</Text><Text style={styles.backText}>Apresente este QR Code nas farmácias, postos e mercados parceiros para obter descontos.</Text><Text style={styles.backPhone}>Central 24h: (15) 99888-7766</Text></View></View>
             <View style={styles.backFooter}><Text style={styles.backFooterText}>Max Seg & Max Saúde · Apiahy</Text><Text style={styles.backFooterText}>Uso pessoal</Text></View>
           </View>
-        )}
+        </Animated.View>
       </Pressable>
       <Card style={styles.validatorRow}><View style={{ flex: 1 }}><Text style={styles.quickTitle}>Validador de desconto em Apiaí</Text><Text style={styles.quickBody}>Mostre o QR Code no caixa do parceiro</Text></View><Pressable onPress={onQr} style={({ pressed }) => [styles.bordoButton, pressed && styles.pressed]}><MaterialIcons name="qr-code-2" size={16} color={C.white} /><Text style={styles.buttonText}>Ampliar QR</Text></Pressable></Card>
       <Text style={styles.sectionTitle}>BENEFÍCIOS DO SEU PLANO MAX TOTAL</Text>
@@ -307,6 +324,10 @@ function PinsView() {
 export default function HomeScreen() {
   const [tab, setTab] = useState<Tab>("home");
   const [sosVisible, setSosVisible] = useState(false);
+  const [sosSending, setSosSending] = useState(false);
+  const [sosLocation, setSosLocation] = useState<SosLocation | null>(null);
+  const [sosLocationError, setSosLocationError] = useState(false);
+  const [sosNoticeVisible, setSosNoticeVisible] = useState(false);
   const [aiVisible, setAiVisible] = useState(false);
   const [pixVisible, setPixVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
@@ -322,12 +343,36 @@ export default function HomeScreen() {
     setAiText("");
   };
 
-  const content = tab === "home" ? <HomeView onNavigate={setTab} onSos={() => setSosVisible(true)} onAi={() => setAiVisible(true)} /> : tab === "carteira" ? <WalletView onQr={() => setQrVisible(true)} /> : tab === "afiliado" ? <AffiliateView onPix={() => setPixVisible(true)} /> : tab === "clube" ? <ClubView onCoupon={setCoupon} /> : tab === "pins" ? <PinsView /> : <TelemedicineView onBack={() => setTab("home")} />;
+  const handleSos = async () => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+    setSosVisible(true);
+    setSosSending(true);
+    setSosLocation(null);
+    setSosLocationError(false);
+    try {
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) throw new Error("GPS desativado");
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") throw new Error("Permissão de localização negada");
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setSosLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude, accuracy: current.coords.accuracy });
+      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setSosLocationError(true);
+      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } finally {
+      setSosSending(false);
+      setSosNoticeVisible(true);
+      setTimeout(() => setSosNoticeVisible(false), 4200);
+    }
+  };
+
+  const content = tab === "home" ? <HomeView onNavigate={setTab} onSos={() => void handleSos()} onAi={() => setAiVisible(true)} /> : tab === "carteira" ? <WalletView onQr={() => setQrVisible(true)} /> : tab === "afiliado" ? <AffiliateView onPix={() => setPixVisible(true)} /> : tab === "clube" ? <ClubView onCoupon={setCoupon} /> : tab === "pins" ? <PinsView /> : <TelemedicineView onBack={() => setTab("home")} />;
 
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]} containerClassName="bg-background" safeAreaClassName="bg-background">
-      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} /><View style={styles.main}>{content}</View>{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
-      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title="Alerta SOS recebido" subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}><View style={styles.modalIconRed}><MaterialIcons name="emergency" size={28} color={C.red} /></View><Text style={styles.modalHeadline}>Sua família está sendo assistida.</Text><Text style={styles.modalBody}>A Central Max recebeu seu alerta e está acionando a pronta resposta mais próxima. Sua localização GPS foi compartilhada com a equipe.</Text><View style={styles.responseBox}><MaterialIcons name="timer" size={18} color={C.gold} /><View><Text style={styles.responseTitle}>Pronta resposta acionada</Text><Text style={styles.responseBody}>Previsão de chegada: 3,2 min</Text></View></View><Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL("tel:153"); else Alert.alert("Central Max", "Ligação disponível pelo número (15) 99888-7766."); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
+      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} /><View style={styles.main}>{content}</View>{sosNoticeVisible ? <View style={styles.sosToast}><MaterialIcons name="check-circle" size={19} color={C.success} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>SOS enviado à Central Max</Text><Text style={styles.sosToastBody}>{sosLocation ? "Localização GPS anexada com sucesso." : "Alerta enviado; GPS não confirmado."}</Text></View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
+      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name="my-location" size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>Obtendo sua localização...</Text><Text style={styles.modalBody}>Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max.</Text><View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.gold} /><View><Text style={styles.responseTitle}>Captura GPS em andamento</Text><Text style={styles.responseBody}>Mantenha o app aberto por alguns segundos.</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name="emergency" size={28} color={C.red} /></View><Text style={styles.modalHeadline}>Sua família está sendo assistida.</Text><Text style={styles.modalBody}>{sosLocation ? "A Central Max recebeu seu alerta e as coordenadas GPS foram anexadas para a pronta resposta." : "A Central Max recebeu seu alerta, mas não foi possível confirmar as coordenadas GPS. Verifique as permissões do aparelho."}</Text>{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS confirmado e enviado</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta enviado sem GPS</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL("tel:153"); else Alert.alert("Central Max", "Ligação disponível pelo número (15) 99888-7766."); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
       <ModalShell visible={pixVisible} onClose={() => setPixVisible(false)} title="Solicitar saque PIX" subtitle="Saldo disponível para validação"><View style={styles.modalSuccess}><View style={styles.pixHeader}><MaterialIcons name="pix" size={30} color={C.gold} /><View><Text style={styles.quickTitle}>Saldo recorrente</Text><Text style={styles.balanceSmall}>R$ 1.169,70</Text></View></View><Text style={styles.modalBody}>Informe o valor que deseja solicitar. A transferência será processada após a validação do seu cadastro.</Text><View style={styles.amountInput}><Text style={styles.amountPrefix}>R$</Text><TextInput style={styles.amountText} placeholder="0,00" placeholderTextColor={C.muted} keyboardType="decimal-pad" defaultValue="700,00" /></View><Pressable onPress={() => { setPixVisible(false); Alert.alert("Solicitação enviada", "Seu saque PIX foi encaminhado para validação cadastral."); }} style={({ pressed }) => [styles.goldButtonLarge, pressed && styles.pressed]}><MaterialIcons name="pix" size={18} color={C.bg} /><Text style={styles.darkButtonText}>Confirmar solicitação</Text></Pressable></View></ModalShell>
       <ModalShell visible={qrVisible} onClose={() => setQrVisible(false)} title="QR Code Max Club" subtitle="Apresente no caixa do parceiro"><View style={styles.qrModalBody}><QrCode size={210} /><Text style={styles.qrModalTitle}>MAX-CLUB-APIAHY-CARLOS-8842</Text><Text style={styles.modalBody}>Válido para uso pessoal e intransferível em parceiros credenciados.</Text><Pressable onPress={() => setQrVisible(false)} style={({ pressed }) => [styles.bordoButtonLarge, pressed && styles.pressed]}><Text style={styles.buttonText}>Fechar</Text></Pressable></View></ModalShell>
       <ModalShell visible={coupon !== null} onClose={() => setCoupon(null)} title="Cupom Max Club" subtitle={coupon?.name}><View style={styles.couponModal}><View style={styles.couponSeal}><MaterialIcons name="local-offer" size={32} color={C.gold} /></View><Text style={styles.couponValue}>{coupon?.discount}</Text><Text style={styles.modalBody}>Mostre seu cartão virtual Max Club no caixa para validar este benefício.</Text><View style={styles.couponCode}><Text style={styles.couponCodeLabel}>CÓDIGO DO BENEFÍCIO</Text><Text style={styles.couponCodeValue}>MAX-APIAHY-8842</Text></View><Pressable onPress={() => { setCoupon(null); Alert.alert("Benefício salvo", "O cupom foi salvo na sua carteira virtual."); }} style={({ pressed }) => [styles.goldButtonLarge, pressed && styles.pressed]}><MaterialIcons name="bookmark" size={18} color={C.bg} /><Text style={styles.darkButtonText}>Salvar na carteira</Text></Pressable></View></ModalShell>
@@ -392,6 +437,7 @@ const styles = StyleSheet.create({
   pageTitle: { color: C.white, fontSize: 19, fontWeight: "900", textAlign: "center" },
   pageSubtitle: { color: C.muted, fontSize: 11, textAlign: "center", lineHeight: 16 },
   vipCard: { height: 220, backgroundColor: C.carbon, borderRadius: 18, borderWidth: 2, borderColor: `${C.gold}66`, overflow: "hidden", shadowColor: C.gold, shadowOpacity: 0.15, shadowRadius: 18, elevation: 8 },
+  cardLayer: { ...StyleSheet.absoluteFillObject, backfaceVisibility: "hidden" as const },
   vipCardBack: { backgroundColor: "#F7F7F7", borderColor: `${C.bordo}77` },
   cardFace: { flex: 1, padding: 16, justifyContent: "space-between" },
   goldLine: { position: "absolute", top: 0, left: 0, right: 0, height: 4, backgroundColor: C.gold },
@@ -525,5 +571,8 @@ const styles = StyleSheet.create({
   chatComposer: { flexDirection: "row", gap: 7, alignItems: "center", marginTop: 12 },
   chatInput: { flex: 1, backgroundColor: C.carbon, borderWidth: 1, borderColor: C.border, borderRadius: 10, color: C.white, fontSize: 11, paddingHorizontal: 11, paddingVertical: 10 },
   sendButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.bordo, alignItems: "center", justifyContent: "center" },
+  sosToast: { position: "absolute", left: 16, right: 16, bottom: Platform.OS === "web" ? 76 : 84, zIndex: 20, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#10251CEE", borderWidth: 1, borderColor: `${C.success}88`, borderRadius: 12, padding: 12, shadowColor: C.success, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
+  sosToastTitle: { color: C.white, fontSize: 11, fontWeight: "900" },
+  sosToastBody: { color: C.muted, fontSize: 9.5, marginTop: 2 },
   pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
 });

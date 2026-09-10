@@ -6,6 +6,10 @@ export function isSosHoldComplete(startedAt: number, releasedAt: number, thresho
   return releasedAt - startedAt >= thresholdMs;
 }
 
+export function formatSosCoordinates(latitude: number, longitude: number): string {
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
+
 export function getMaxAiReply(message: string): string {
   const normalized = message.toLowerCase();
   if (normalized.includes("desconto") || normalized.includes("clube") || normalized.includes("parceiro")) {
