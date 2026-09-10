@@ -19,6 +19,7 @@ import {
 
 import { ScreenContainer } from "@/components/screen-container";
 import { filterByCategory, formatSosCoordinates, getMaxAiReply } from "@/shared/max-seg";
+import { trpc } from "@/lib/trpc";
 
 const C = {
   bg: "#080808",
@@ -328,12 +329,15 @@ export default function HomeScreen() {
   const [sosLocation, setSosLocation] = useState<SosLocation | null>(null);
   const [sosLocationError, setSosLocationError] = useState(false);
   const [sosNoticeVisible, setSosNoticeVisible] = useState(false);
+  const [sosApiStatus, setSosApiStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sosApiId, setSosApiId] = useState<string | null>(null);
   const [aiVisible, setAiVisible] = useState(false);
   const [pixVisible, setPixVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
   const [coupon, setCoupon] = useState<Merchant | null>(null);
   const [aiText, setAiText] = useState("");
   const [aiMessages, setAiMessages] = useState<{ from: "user" | "ai"; text: string }[]>([{ from: "ai", text: "Olá, Carlos. Sou o Max IA. Posso ajudar com proteção, saúde ou benefícios em Apiaí." }]);
+  const sosMutation = trpc.sos.send.useMutation();
 
   const sendAi = () => {
     const trimmed = aiText.trim();
@@ -349,17 +353,34 @@ export default function HomeScreen() {
     setSosSending(true);
     setSosLocation(null);
     setSosLocationError(false);
+    setSosApiStatus("idle");
+    setSosApiId(null);
+    let capturedLocation: SosLocation | null = null;
     try {
       const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled) throw new Error("GPS desativado");
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") throw new Error("Permissão de localização negada");
       const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setSosLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude, accuracy: current.coords.accuracy });
-      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      capturedLocation = { latitude: current.coords.latitude, longitude: current.coords.longitude, accuracy: current.coords.accuracy };
+      setSosLocation(capturedLocation);
     } catch {
       setSosLocationError(true);
-      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    try {
+      setSosApiStatus("sending");
+      const response = await sosMutation.mutateAsync({
+        latitude: capturedLocation?.latitude ?? null,
+        longitude: capturedLocation?.longitude ?? null,
+        accuracy: capturedLocation?.accuracy ?? null,
+        platform: Platform.OS,
+      });
+      setSosApiId(response.alertId);
+      setSosApiStatus("sent");
+      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setSosApiStatus("error");
+      if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSosSending(false);
       setSosNoticeVisible(true);
@@ -371,8 +392,8 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]} containerClassName="bg-background" safeAreaClassName="bg-background">
-      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} /><View style={styles.main}>{content}</View>{sosNoticeVisible ? <View style={styles.sosToast}><MaterialIcons name="check-circle" size={19} color={C.success} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>SOS enviado à Central Max</Text><Text style={styles.sosToastBody}>{sosLocation ? "Localização GPS anexada com sucesso." : "Alerta enviado; GPS não confirmado."}</Text></View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
-      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name="my-location" size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>Obtendo sua localização...</Text><Text style={styles.modalBody}>Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max.</Text><View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.gold} /><View><Text style={styles.responseTitle}>Captura GPS em andamento</Text><Text style={styles.responseBody}>Mantenha o app aberto por alguns segundos.</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name="emergency" size={28} color={C.red} /></View><Text style={styles.modalHeadline}>Sua família está sendo assistida.</Text><Text style={styles.modalBody}>{sosLocation ? "A Central Max recebeu seu alerta e as coordenadas GPS foram anexadas para a pronta resposta." : "A Central Max recebeu seu alerta, mas não foi possível confirmar as coordenadas GPS. Verifique as permissões do aparelho."}</Text>{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS confirmado e enviado</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta enviado sem GPS</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL("tel:153"); else Alert.alert("Central Max", "Ligação disponível pelo número (15) 99888-7766."); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
+      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} /><View style={styles.main}>{content}</View>{sosNoticeVisible ? <View style={[styles.sosToast, sosApiStatus === "error" && styles.sosToastError]}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={19} color={sosApiStatus === "sent" ? C.success : C.red} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>{sosApiStatus === "sent" ? "SOS recebido pela API Max" : "Falha ao enviar SOS"}</Text><Text style={styles.sosToastBody}>{sosApiStatus === "sent" ? `${sosLocation ? "GPS anexado" : "Sem GPS"} · protocolo confirmado.` : "Tente novamente ou fale com a Central."}</Text></View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
+      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : sosApiStatus === "error" ? "Falha no envio do SOS" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sending" ? "cloud-upload" : "my-location"} size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sending" ? "Enviando para a Central..." : "Obtendo sua localização..."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sending" ? "A API simulada está confirmando o recebimento do alerta e das coordenadas." : "Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max."}</Text><View style={styles.responseBox}><MaterialIcons name={sosApiStatus === "sending" ? "sync" : "gps-fixed"} size={18} color={C.gold} /><View><Text style={styles.responseTitle}>{sosApiStatus === "sending" ? "Requisição SOS em andamento" : "Captura GPS em andamento"}</Text><Text style={styles.responseBody}>Mantenha o app aberto por alguns segundos.</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={28} color={sosApiStatus === "sent" ? C.success : C.red} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sent" ? "Sua família está sendo assistida." : "Não conseguimos confirmar o envio."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sent" ? "A API simulada confirmou o alerta e a Central Max recebeu o protocolo." : "O alerta foi preparado, mas a API simulada não respondeu. Tente novamente em alguns instantes."}</Text>{sosApiStatus === "sent" ? <View style={styles.responseBox}><MaterialIcons name="cloud-done" size={18} color={C.success} /><View><Text style={styles.responseTitle}>API confirmou recebimento</Text><Text style={styles.responseBody}>{sosApiId ?? "Protocolo gerado"} · {sosLocation ? formatSosCoordinates(sosLocation.latitude, sosLocation.longitude) : "GPS não confirmado"}</Text></View></View> : null}{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS anexado ao alerta</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta sem coordenadas</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL("tel:153"); else Alert.alert("Central Max", "Ligação disponível pelo número (15) 99888-7766."); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
       <ModalShell visible={pixVisible} onClose={() => setPixVisible(false)} title="Solicitar saque PIX" subtitle="Saldo disponível para validação"><View style={styles.modalSuccess}><View style={styles.pixHeader}><MaterialIcons name="pix" size={30} color={C.gold} /><View><Text style={styles.quickTitle}>Saldo recorrente</Text><Text style={styles.balanceSmall}>R$ 1.169,70</Text></View></View><Text style={styles.modalBody}>Informe o valor que deseja solicitar. A transferência será processada após a validação do seu cadastro.</Text><View style={styles.amountInput}><Text style={styles.amountPrefix}>R$</Text><TextInput style={styles.amountText} placeholder="0,00" placeholderTextColor={C.muted} keyboardType="decimal-pad" defaultValue="700,00" /></View><Pressable onPress={() => { setPixVisible(false); Alert.alert("Solicitação enviada", "Seu saque PIX foi encaminhado para validação cadastral."); }} style={({ pressed }) => [styles.goldButtonLarge, pressed && styles.pressed]}><MaterialIcons name="pix" size={18} color={C.bg} /><Text style={styles.darkButtonText}>Confirmar solicitação</Text></Pressable></View></ModalShell>
       <ModalShell visible={qrVisible} onClose={() => setQrVisible(false)} title="QR Code Max Club" subtitle="Apresente no caixa do parceiro"><View style={styles.qrModalBody}><QrCode size={210} /><Text style={styles.qrModalTitle}>MAX-CLUB-APIAHY-CARLOS-8842</Text><Text style={styles.modalBody}>Válido para uso pessoal e intransferível em parceiros credenciados.</Text><Pressable onPress={() => setQrVisible(false)} style={({ pressed }) => [styles.bordoButtonLarge, pressed && styles.pressed]}><Text style={styles.buttonText}>Fechar</Text></Pressable></View></ModalShell>
       <ModalShell visible={coupon !== null} onClose={() => setCoupon(null)} title="Cupom Max Club" subtitle={coupon?.name}><View style={styles.couponModal}><View style={styles.couponSeal}><MaterialIcons name="local-offer" size={32} color={C.gold} /></View><Text style={styles.couponValue}>{coupon?.discount}</Text><Text style={styles.modalBody}>Mostre seu cartão virtual Max Club no caixa para validar este benefício.</Text><View style={styles.couponCode}><Text style={styles.couponCodeLabel}>CÓDIGO DO BENEFÍCIO</Text><Text style={styles.couponCodeValue}>MAX-APIAHY-8842</Text></View><Pressable onPress={() => { setCoupon(null); Alert.alert("Benefício salvo", "O cupom foi salvo na sua carteira virtual."); }} style={({ pressed }) => [styles.goldButtonLarge, pressed && styles.pressed]}><MaterialIcons name="bookmark" size={18} color={C.bg} /><Text style={styles.darkButtonText}>Salvar na carteira</Text></Pressable></View></ModalShell>
@@ -572,6 +593,7 @@ const styles = StyleSheet.create({
   chatInput: { flex: 1, backgroundColor: C.carbon, borderWidth: 1, borderColor: C.border, borderRadius: 10, color: C.white, fontSize: 11, paddingHorizontal: 11, paddingVertical: 10 },
   sendButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.bordo, alignItems: "center", justifyContent: "center" },
   sosToast: { position: "absolute", left: 16, right: 16, bottom: Platform.OS === "web" ? 76 : 84, zIndex: 20, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#10251CEE", borderWidth: 1, borderColor: `${C.success}88`, borderRadius: 12, padding: 12, shadowColor: C.success, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
+  sosToastError: { backgroundColor: "#32151CEE", borderColor: `${C.red}88`, shadowColor: C.red },
   sosToastTitle: { color: C.white, fontSize: 11, fontWeight: "900" },
   sosToastBody: { color: C.muted, fontSize: 9.5, marginTop: 2 },
   pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },

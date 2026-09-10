@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { z } from "zod";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -15,6 +16,30 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+
+  sos: router({
+    send: publicProcedure
+      .input(z.object({
+        latitude: z.number().finite().nullable(),
+        longitude: z.number().finite().nullable(),
+        accuracy: z.number().finite().nonnegative().nullable(),
+        platform: z.string().min(1).max(32),
+      }))
+      .mutation(async ({ input }) => {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const receivedAt = new Date();
+        return {
+          alertId: `MAX-SOS-${receivedAt.getTime()}`,
+          status: "received" as const,
+          receivedAt,
+          locationAttached: input.latitude !== null && input.longitude !== null,
+          location: input.latitude !== null && input.longitude !== null
+            ? { latitude: input.latitude, longitude: input.longitude, accuracy: input.accuracy }
+            : null,
+          message: "Alerta recebido pela Central Max Apiahy.",
+        };
+      }),
   }),
 
   // TODO: add feature routers here, e.g.
