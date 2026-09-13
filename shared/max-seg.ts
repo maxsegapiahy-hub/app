@@ -10,6 +10,12 @@ export function formatSosCoordinates(latitude: number, longitude: number): strin
   return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 }
 
+export const SOS_MAX_ATTEMPTS = 3;
+
+export function getSosRetryDelayMs(attempt: number): number {
+  return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
+}
+
 export function getMaxAiReply(message: string): string {
   const normalized = message.toLowerCase();
   if (normalized.includes("desconto") || normalized.includes("clube") || normalized.includes("parceiro")) {

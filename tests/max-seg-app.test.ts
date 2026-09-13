@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterByCategory, formatSosCoordinates, getMaxAiReply, isSosHoldComplete } from "../shared/max-seg";
+import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS } from "../shared/max-seg";
 
 describe("Max Seg & Max Saúde", () => {
   it("filtra parceiros do Clube por categoria e preserva todos", () => {
@@ -21,6 +21,13 @@ describe("Max Seg & Max Saúde", () => {
 
   it("formata as coordenadas enviadas para a central", () => {
     expect(formatSosCoordinates(-24.5123456, -48.8421987)).toBe("-24.51235, -48.84220");
+  });
+
+  it("calcula backoff progressivo para até três tentativas", () => {
+    expect(SOS_MAX_ATTEMPTS).toBe(3);
+    expect(getSosRetryDelayMs(1)).toBe(800);
+    expect(getSosRetryDelayMs(2)).toBe(1600);
+    expect(getSosRetryDelayMs(3)).toBe(3200);
   });
 
   it("responde temas conhecidos com orientação contextual", () => {
