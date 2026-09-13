@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateUserProfile } from "../shared/max-seg";
+import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateEmergencyContact, validateUserProfile } from "../shared/max-seg";
 
 describe("Max Seg & Max Saúde", () => {
   it("filtra parceiros do Clube por categoria e preserva todos", () => {
@@ -41,5 +41,7 @@ describe("Max Seg & Max Saúde", () => {
     expect(validateUserProfile({ name: "Carlos", email: "email-invalido", phone: "15999999999" })).toBe("Informe um e-mail válido.");
     expect(validateUserProfile({ name: "Carlos", email: "carlos@email.com", phone: "123" })).toBe("Informe um telefone válido.");
     expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999" })).toBeNull();
+    expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999", contacts: [{ name: "Ana", phone: "123", relationship: "Irmã" }] })).toContain("telefone");
+    expect(validateEmergencyContact({ name: "Ana Silva", phone: "(15) 98888-7777", relationship: "Irmã" })).toBeNull();
   });
 });

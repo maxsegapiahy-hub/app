@@ -16,11 +16,13 @@ describe("sos.send", () => {
       longitude: -48.8422,
       accuracy: 8,
       platform: "ios",
+      contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã" }],
     });
 
     expect(result.status).toBe("received");
     expect(result.alertId).toMatch(/^MAX-SOS-/);
     expect(result.locationAttached).toBe(true);
+    expect(result.emergencyContactsNotified).toBe(1);
     expect(result.location).toEqual({ latitude: -24.51235, longitude: -48.8422, accuracy: 8 });
   });
 
@@ -42,5 +44,18 @@ describe("sos.send", () => {
 
     expect(result.status).toBe("canceled");
     expect(result.alertId).toBe("MAX-SOS-123");
+  });
+
+  it("sincroniza perfil e contatos com a Central Max", async () => {
+    const result = await appRouter.createCaller(context).profile.sync({
+      name: "Carlos Silva",
+      email: "carlos@email.com",
+      phone: "15999999999",
+      contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã" }],
+    });
+
+    expect(result.status).toBe("synced");
+    expect(result.contactCount).toBe(1);
+    expect(result.notificationsReady).toBe(true);
   });
 });

@@ -16,12 +16,24 @@ export function getSosRetryDelayMs(attempt: number): number {
   return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
 }
 
-export type UserProfileInput = { name: string; email: string; phone: string };
+export type EmergencyContact = { name: string; phone: string; relationship: string };
+export type UserProfileInput = { name: string; email: string; phone: string; contacts?: EmergencyContact[] };
+
+export function validateEmergencyContact(contact: EmergencyContact): string | null {
+  if (contact.name.trim().length < 2) return "Informe o nome do contato de emergência.";
+  if (contact.phone.replace(/\D/g, "").length < 10) return "Informe um telefone válido para o contato.";
+  if (contact.relationship.trim().length < 2) return "Informe o parentesco ou relação.";
+  return null;
+}
 
 export function validateUserProfile(profile: UserProfileInput): string | null {
   if (profile.name.trim().length < 2) return "Informe seu nome completo.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) return "Informe um e-mail válido.";
   if (profile.phone.replace(/\D/g, "").length < 10) return "Informe um telefone válido.";
+  for (const contact of profile.contacts ?? []) {
+    const contactError = validateEmergencyContact(contact);
+    if (contactError) return contactError;
+  }
   return null;
 }
 

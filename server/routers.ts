@@ -25,6 +25,7 @@ export const appRouter = router({
         longitude: z.number().finite().nullable(),
         accuracy: z.number().finite().nonnegative().nullable(),
         platform: z.string().min(1).max(32),
+        contacts: z.array(z.object({ name: z.string().min(2).max(120), phone: z.string().min(10).max(24), relationship: z.string().min(2).max(60) })).max(3).default([]),
       }))
       .mutation(async ({ input }) => {
         await new Promise((resolve) => setTimeout(resolve, 250));
@@ -37,6 +38,7 @@ export const appRouter = router({
           location: input.latitude !== null && input.longitude !== null
             ? { latitude: input.latitude, longitude: input.longitude, accuracy: input.accuracy }
             : null,
+          emergencyContactsNotified: input.contacts.length,
           message: "Alerta recebido pela Central Max Apiahy.",
         };
       }),
@@ -49,6 +51,30 @@ export const appRouter = router({
           status: "canceled" as const,
           canceledAt: new Date(),
           message: "Alerta cancelado pela pessoa titular.",
+        };
+      }),
+  }),
+
+  profile: router({
+    sync: publicProcedure
+      .input(z.object({
+        name: z.string().min(2).max(120),
+        email: z.string().email(),
+        phone: z.string().min(10).max(24),
+        contacts: z.array(z.object({
+          name: z.string().min(2).max(120),
+          phone: z.string().min(10).max(24),
+          relationship: z.string().min(2).max(60),
+        })).max(3),
+      }))
+      .mutation(async ({ input }) => {
+        await new Promise((resolve) => setTimeout(resolve, 220));
+        return {
+          profileId: `MAX-PERFIL-${Date.now()}`,
+          status: "synced" as const,
+          contactCount: input.contacts.length,
+          notificationsReady: input.contacts.length > 0,
+          message: "Perfil sincronizado com a Central Max Apiahy.",
         };
       }),
   }),
