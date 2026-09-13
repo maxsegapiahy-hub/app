@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS } from "../shared/max-seg";
+import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateUserProfile } from "../shared/max-seg";
 
 describe("Max Seg & Max Saúde", () => {
   it("filtra parceiros do Clube por categoria e preserva todos", () => {
@@ -34,5 +34,12 @@ describe("Max Seg & Max Saúde", () => {
     expect(getMaxAiReply("Quais descontos eu tenho?")).toContain("Clube Apiaí");
     expect(getMaxAiReply("Preciso falar com um médico")).toContain("Telemedicina 24h");
     expect(getMaxAiReply("Como aciono o SOS?")).toContain("2 segundos");
+  });
+
+  it("valida nome, e-mail e telefone do cadastro", () => {
+    expect(validateUserProfile({ name: "", email: "carlos@email.com", phone: "15999999999" })).toBe("Informe seu nome completo.");
+    expect(validateUserProfile({ name: "Carlos", email: "email-invalido", phone: "15999999999" })).toBe("Informe um e-mail válido.");
+    expect(validateUserProfile({ name: "Carlos", email: "carlos@email.com", phone: "123" })).toBe("Informe um telefone válido.");
+    expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999" })).toBeNull();
   });
 });

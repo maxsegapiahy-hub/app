@@ -16,6 +16,15 @@ export function getSosRetryDelayMs(attempt: number): number {
   return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
 }
 
+export type UserProfileInput = { name: string; email: string; phone: string };
+
+export function validateUserProfile(profile: UserProfileInput): string | null {
+  if (profile.name.trim().length < 2) return "Informe seu nome completo.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) return "Informe um e-mail válido.";
+  if (profile.phone.replace(/\D/g, "").length < 10) return "Informe um telefone válido.";
+  return null;
+}
+
 export function getMaxAiReply(message: string): string {
   const normalized = message.toLowerCase();
   if (normalized.includes("desconto") || normalized.includes("clube") || normalized.includes("parceiro")) {
