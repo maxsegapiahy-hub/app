@@ -36,4 +36,11 @@ describe("sos.send", () => {
     expect(result.locationAttached).toBe(false);
     expect(result.location).toBeNull();
   });
+
+  it("cancela um alerta antes da chegada da equipe", async () => {
+    const result = await appRouter.createCaller(context).sos.cancel({ alertId: "MAX-SOS-123" });
+
+    expect(result.status).toBe("canceled");
+    expect(result.alertId).toBe("MAX-SOS-123");
+  });
 });

@@ -40,6 +40,17 @@ export const appRouter = router({
           message: "Alerta recebido pela Central Max Apiahy.",
         };
       }),
+    cancel: publicProcedure
+      .input(z.object({ alertId: z.string().min(1).max(64) }))
+      .mutation(async ({ input }) => {
+        await new Promise((resolve) => setTimeout(resolve, 180));
+        return {
+          alertId: input.alertId,
+          status: "canceled" as const,
+          canceledAt: new Date(),
+          message: "Alerta cancelado pela pessoa titular.",
+        };
+      }),
   }),
 
   // TODO: add feature routers here, e.g.
