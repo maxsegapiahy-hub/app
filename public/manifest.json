@@ -1,0 +1,16 @@
+{
+  "name": "Max Seg & Max Saúde — Apiahy",
+  "short_name": "Max Seg Apiahy",
+  "description": "Proteção, saúde e benefícios Max para Apiaí.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "icons": [
+    { "src": "/max-seg-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon.png", "sizes": "48x48", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -38,6 +38,11 @@ export default function RootLayout() {
     initManusRuntime();
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== "web" || !("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, []);
+
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
     setInsets(metrics.insets);
     setFrame(metrics.frame);

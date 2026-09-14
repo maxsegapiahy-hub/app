@@ -43,5 +43,7 @@ describe("Max Seg & Max Saúde", () => {
     expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999" })).toBeNull();
     expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999", contacts: [{ name: "Ana", phone: "123", relationship: "Irmã" }] })).toContain("telefone");
     expect(validateEmergencyContact({ name: "Ana Silva", phone: "(15) 98888-7777", relationship: "Irmã" })).toBeNull();
+    expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999", contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã", isPrimary: true }, { name: "João Silva", phone: "15977776666", relationship: "Pai", isPrimary: true }] })).toContain("apenas um");
+    expect(validateUserProfile({ name: "Carlos Silva", email: "carlos@email.com", phone: "(15) 99999-9999", central: { name: "Central Max Apiahy", phone: "153" } })).toBeNull();
   });
 });

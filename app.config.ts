@@ -27,7 +27,16 @@ const config: ExpoConfig = {
     package: bundleId,
     permissions: ["POST_NOTIFICATIONS"],
   },
-  web: { bundler: "metro", output: "static", favicon: "./assets/images/favicon.png" },
+  web: {
+    bundler: "metro",
+    output: "static",
+    favicon: "./assets/images/favicon.png",
+    name: "Max Seg & Max Saúde — Apiahy",
+    shortName: "Max Seg Apiahy",
+    themeColor: "#080808",
+    backgroundColor: "#080808",
+    lang: "pt-BR",
+  },
   plugins: [
     "expo-router",
     ["expo-location", { locationWhenInUsePermission: "Permita que a Max Seg use sua localização para acionar a pronta resposta SOS." }],

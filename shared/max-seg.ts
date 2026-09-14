@@ -16,8 +16,9 @@ export function getSosRetryDelayMs(attempt: number): number {
   return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
 }
 
-export type EmergencyContact = { name: string; phone: string; relationship: string };
-export type UserProfileInput = { name: string; email: string; phone: string; contacts?: EmergencyContact[] };
+export type EmergencyContact = { name: string; phone: string; relationship: string; isPrimary?: boolean };
+export type CentralContact = { name: string; phone: string };
+export type UserProfileInput = { name: string; email: string; phone: string; contacts?: EmergencyContact[]; central?: CentralContact };
 
 export function validateEmergencyContact(contact: EmergencyContact): string | null {
   if (contact.name.trim().length < 2) return "Informe o nome do contato de emergência.";
@@ -34,6 +35,9 @@ export function validateUserProfile(profile: UserProfileInput): string | null {
     const contactError = validateEmergencyContact(contact);
     if (contactError) return contactError;
   }
+  const primaryContacts = (profile.contacts ?? []).filter((contact) => contact.isPrimary).length;
+  if (primaryContacts > 1) return "Defina apenas um contato principal.";
+  if (profile.central && (profile.central.name.trim().length < 2 || profile.central.phone.replace(/\D/g, "").length < 3)) return "Informe um telefone válido para a Central Max.";
   return null;
 }
 

@@ -51,11 +51,13 @@ describe("sos.send", () => {
       name: "Carlos Silva",
       email: "carlos@email.com",
       phone: "15999999999",
-      contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã" }],
+      contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã", isPrimary: true }],
+      central: { name: "Central Max Apiahy", phone: "153" },
     });
 
     expect(result.status).toBe("synced");
     expect(result.contactCount).toBe(1);
     expect(result.notificationsReady).toBe(true);
+    expect(result.primaryContact).toBe("Ana Silva");
   });
 });

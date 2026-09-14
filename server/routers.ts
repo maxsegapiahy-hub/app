@@ -65,7 +65,9 @@ export const appRouter = router({
           name: z.string().min(2).max(120),
           phone: z.string().min(10).max(24),
           relationship: z.string().min(2).max(60),
+          isPrimary: z.boolean().optional(),
         })).max(3),
+        central: z.object({ name: z.string().min(2).max(120), phone: z.string().min(3).max(24) }),
       }))
       .mutation(async ({ input }) => {
         await new Promise((resolve) => setTimeout(resolve, 220));
@@ -73,6 +75,7 @@ export const appRouter = router({
           profileId: `MAX-PERFIL-${Date.now()}`,
           status: "synced" as const,
           contactCount: input.contacts.length,
+          primaryContact: input.contacts.find((contact) => contact.isPrimary)?.name ?? null,
           notificationsReady: input.contacts.length > 0,
           message: "Perfil sincronizado com a Central Max Apiahy.",
         };
