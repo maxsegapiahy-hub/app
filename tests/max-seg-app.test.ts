@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateEmergencyContact, validateUserProfile } from "../shared/max-seg";
+import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateEmergencyContact, validateUserProfile } from "../shared/max-seg";
 
 describe("Max Seg & Max Saúde", () => {
   it("filtra parceiros do Clube por categoria e preserva todos", () => {
@@ -34,6 +34,13 @@ describe("Max Seg & Max Saúde", () => {
     expect(getMaxAiReply("Quais descontos eu tenho?")).toContain("Clube Apiaí");
     expect(getMaxAiReply("Preciso falar com um médico")).toContain("Telemedicina 24h");
     expect(getMaxAiReply("Como aciono o SOS?")).toContain("2 segundos");
+  });
+
+  it("mantém o perfil operacional da Central Max Apiahy", () => {
+    expect(CENTRAL_MAX_PROFILE.name).toBe("Central Max Apiahy");
+    expect(CENTRAL_MAX_PROFILE.phone).toBe("153");
+    expect(CENTRAL_MAX_PROFILE.status).toBe("online");
+    expect(CENTRAL_MAX_PROFILE.channels).toContain("SOS com localização GPS");
   });
 
   it("valida nome, e-mail e telefone do cadastro", () => {

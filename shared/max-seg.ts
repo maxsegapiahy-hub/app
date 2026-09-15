@@ -12,6 +12,18 @@ export function formatSosCoordinates(latitude: number, longitude: number): strin
 
 export const SOS_MAX_ATTEMPTS = 3;
 
+export const CENTRAL_MAX_PROFILE = {
+  id: "central-max-apiahy",
+  name: "Central Max Apiahy",
+  city: "Apiaí · SP",
+  phone: "153",
+  service: "Proteção, saúde e pronta resposta",
+  availability: "24 horas, todos os dias",
+  responseTarget: "Pronta resposta estimada em até 3 minutos",
+  channels: ["SOS com localização GPS", "Telefone 153", "Acompanhamento do protocolo no app"],
+  status: "online" as const,
+};
+
 export function getSosRetryDelayMs(attempt: number): number {
   return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
 }

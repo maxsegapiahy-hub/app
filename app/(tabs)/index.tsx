@@ -21,7 +21,7 @@ import {
 } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
-import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, SOS_MAX_ATTEMPTS, type EmergencyContact, type UserProfileInput, validateEmergencyContact, validateUserProfile } from "@/shared/max-seg";
+import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, SOS_MAX_ATTEMPTS, type EmergencyContact, type UserProfileInput, validateEmergencyContact, validateUserProfile } from "@/shared/max-seg";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -374,8 +374,8 @@ export default function HomeScreen() {
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
-  const [centralName, setCentralName] = useState("Central Max Apiahy");
-  const [centralPhone, setCentralPhone] = useState("153");
+  const [centralName, setCentralName] = useState(CENTRAL_MAX_PROFILE.name);
+  const [centralPhone, setCentralPhone] = useState(CENTRAL_MAX_PROFILE.phone);
   const [profileError, setProfileError] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSyncStatus, setProfileSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
@@ -413,8 +413,8 @@ export default function HomeScreen() {
     setProfileEmail(nextProfile.email);
     setProfilePhone(nextProfile.phone);
     setEmergencyContacts(nextProfile.contacts ?? []);
-    setCentralName(nextProfile.central?.name ?? "Central Max Apiahy");
-    setCentralPhone(nextProfile.central?.phone ?? "153");
+    setCentralName(nextProfile.central?.name ?? CENTRAL_MAX_PROFILE.name);
+    setCentralPhone(nextProfile.central?.phone ?? CENTRAL_MAX_PROFILE.phone);
   }, [profileQuery.data]);
 
   useEffect(() => {
@@ -439,8 +439,8 @@ export default function HomeScreen() {
           setProfileEmail(saved.email);
           setProfilePhone(saved.phone);
           setEmergencyContacts(saved.contacts ?? []);
-          setCentralName(saved.central?.name ?? "Central Max Apiahy");
-          setCentralPhone(saved.central?.phone ?? "153");
+          setCentralName(saved.central?.name ?? CENTRAL_MAX_PROFILE.name);
+          setCentralPhone(saved.central?.phone ?? CENTRAL_MAX_PROFILE.phone);
         }
       } catch {
         // Keep the form available when local data is malformed.
@@ -461,8 +461,8 @@ export default function HomeScreen() {
     setProfileEmail(profile?.email ?? "");
     setProfilePhone(profile?.phone ?? "");
     setEmergencyContacts(profile?.contacts ?? []);
-    setCentralName(profile?.central?.name ?? "Central Max Apiahy");
-    setCentralPhone(profile?.central?.phone ?? "153");
+    setCentralName(profile?.central?.name ?? CENTRAL_MAX_PROFILE.name);
+    setCentralPhone(profile?.central?.phone ?? CENTRAL_MAX_PROFILE.phone);
     setProfileError("");
     setProfileSaved(false);
     setProfileSyncStatus("idle");
@@ -639,7 +639,8 @@ export default function HomeScreen() {
             </View>
             <View style={styles.centralConfig}>
               <Text style={styles.contactsTitle}>CENTRAL MAX</Text>
-              <Text style={styles.contactsHint}>Configure o nome e o telefone usados no atendimento.</Text>
+              <Text style={styles.contactsHint}>{CENTRAL_MAX_PROFILE.service} · {CENTRAL_MAX_PROFILE.availability} · {CENTRAL_MAX_PROFILE.responseTarget}.</Text>
+              <Text style={styles.contactsHint}>Canais: {CENTRAL_MAX_PROFILE.channels.join(" · ")}.</Text>
               <TextInput value={centralName} onChangeText={setCentralName} placeholder="Nome da Central" placeholderTextColor={C.muted} style={styles.profileInput} />
               <TextInput value={centralPhone} onChangeText={setCentralPhone} placeholder="Telefone da Central" placeholderTextColor={C.muted} style={styles.profileInput} keyboardType="phone-pad" />
             </View>

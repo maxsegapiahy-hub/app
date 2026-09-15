@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getActivePushTokens, getUserProfile, upsertPushToken, upsertUserProfile } from "./db";
 import { sendExpoPushMessages } from "./push";
+import { CENTRAL_MAX_PROFILE } from "../shared/max-seg";
 import { z } from "zod";
 
 const profileInput = z.object({
@@ -21,6 +22,9 @@ const profileInput = z.object({
 
 export const appRouter = router({
   system: systemRouter,
+  central: router({
+    profile: publicProcedure.query(() => CENTRAL_MAX_PROFILE),
+  }),
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -76,6 +80,7 @@ export const appRouter = router({
           emergencyContactsQueued: input.contacts.length,
           pushSent,
           pushFailed,
+          central: CENTRAL_MAX_PROFILE,
           message: "Alerta autenticado e recebido pela Central Max Apiahy.",
         };
       }),
