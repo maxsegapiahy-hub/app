@@ -2,6 +2,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -21,6 +23,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, SOS_MAX_ATTEMPTS, type EmergencyContact, type UserProfileInput, validateEmergencyContact, validateUserProfile } from "@/shared/max-seg";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
 
 const C = {
   bg: "#080808",
@@ -81,6 +84,19 @@ const qrCells = Array.from({ length: 81 }, (_, index) => {
 
 function triggerHaptic(style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) {
   if (Platform.OS !== "web") void Haptics.impactAsync(style);
+}
+
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", { name: "default", importance: Notifications.AndroidImportance.MAX, vibrationPattern: [0, 250, 250, 250], lightColor: C.bordo });
+  }
+  const current = await Notifications.getPermissionsAsync();
+  const permission = current.status === "granted" ? current : await Notifications.requestPermissionsAsync();
+  if (permission.status !== "granted") return null;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+  if (!projectId) return null;
+  return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 }
 
 function Card({ children, style }: { children: React.ReactNode; style?: object }) {
@@ -337,6 +353,7 @@ function PinsView() {
 }
 
 export default function HomeScreen() {
+  const { isAuthenticated } = useAuth();
   const [tab, setTab] = useState<Tab>("home");
   const [sosVisible, setSosVisible] = useState(false);
   const [sosSending, setSosSending] = useState(false);
@@ -363,6 +380,7 @@ export default function HomeScreen() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSyncStatus, setProfileSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
   const [profileSyncId, setProfileSyncId] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<"idle" | "registered" | "unavailable" | "error">("idle");
   const [aiVisible, setAiVisible] = useState(false);
   const [pixVisible, setPixVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
@@ -372,6 +390,32 @@ export default function HomeScreen() {
   const sosMutation = trpc.sos.send.useMutation();
   const cancelSosMutation = trpc.sos.cancel.useMutation();
   const profileSyncMutation = trpc.profile.sync.useMutation();
+  const profileQuery = trpc.profile.get.useQuery(undefined, { enabled: isAuthenticated, retry: false });
+  const { mutateAsync: registerPushAsync } = trpc.push.register.useMutation();
+
+  useEffect(() => {
+    if (!isAuthenticated || Platform.OS === "web") return;
+    let active = true;
+    void registerForPushNotificationsAsync().then((token) => {
+      if (!active) return;
+      if (!token) { setPushStatus("unavailable"); return; }
+      return registerPushAsync({ token, platform: Platform.OS as "ios" | "android" }).then(() => setPushStatus("registered")).catch(() => setPushStatus("error"));
+    }).catch(() => { if (active) setPushStatus("error"); });
+    return () => { active = false; };
+  }, [isAuthenticated, registerPushAsync]);
+
+  useEffect(() => {
+    const remoteProfile = profileQuery.data;
+    if (!remoteProfile) return;
+    const nextProfile: UserProfileInput = { name: remoteProfile.name, email: remoteProfile.email, phone: remoteProfile.phone, contacts: remoteProfile.contacts as EmergencyContact[], central: remoteProfile.central };
+    setProfile(nextProfile);
+    setProfileName(nextProfile.name);
+    setProfileEmail(nextProfile.email);
+    setProfilePhone(nextProfile.phone);
+    setEmergencyContacts(nextProfile.contacts ?? []);
+    setCentralName(nextProfile.central?.name ?? "Central Max Apiahy");
+    setCentralPhone(nextProfile.central?.phone ?? "153");
+  }, [profileQuery.data]);
 
   useEffect(() => {
     if (sosApiStatus !== "sent") return;
@@ -442,6 +486,12 @@ export default function HomeScreen() {
     setProfile(nextProfile);
     setProfileError("");
     setProfileSaved(true);
+    if (!isAuthenticated) {
+      setProfileSyncStatus("error");
+      setProfileError("Entre com sua conta Max para sincronizar este perfil com segurança.");
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      return;
+    }
     setProfileSyncStatus("syncing");
     try {
       const response = await profileSyncMutation.mutateAsync(nextProfile);
@@ -468,6 +518,10 @@ export default function HomeScreen() {
   };
 
   const handleSos = async () => {
+    if (!isAuthenticated) {
+      Alert.alert("Autenticação necessária", "Entre com sua conta Max para enviar um alerta SOS autenticado.");
+      return;
+    }
     triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
     setSosVisible(true);
     setSosSending(true);
@@ -504,7 +558,7 @@ export default function HomeScreen() {
           contacts: emergencyContacts,
         });
         setSosApiId(response.alertId);
-        setSosContactsNotified(response.emergencyContactsNotified);
+        setSosContactsNotified(response.pushSent);
         setSosApiStatus("sent");
         delivered = true;
         if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -544,12 +598,15 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]} containerClassName="bg-background" safeAreaClassName="bg-background">
       <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} onProfile={openProfile} profile={profile} /><View style={styles.main}>{content}</View>{sosNoticeVisible ? <View style={[styles.sosToast, centralStatus !== "idle" && styles.sosToastRaised, sosApiStatus === "error" && styles.sosToastError]}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={19} color={sosApiStatus === "sent" ? C.success : C.red} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>{sosApiStatus === "sent" ? "SOS recebido pela API Max" : "Falha ao enviar SOS"}</Text><Text style={styles.sosToastBody}>{sosApiStatus === "sent" ? `${sosLocation ? "GPS anexado" : "Sem GPS"} · protocolo confirmado.` : "Tente novamente ou fale com a Central."}</Text></View></View> : null}{centralStatus !== "idle" ? <View style={styles.centralStatusCard}><View style={styles.centralStatusIcon}><MaterialIcons name={CENTRAL_STATUS_COPY[centralStatus].icon} size={20} color={C.success} /></View><View style={{ flex: 1 }}><Text style={styles.centralStatusTitle}>{CENTRAL_STATUS_COPY[centralStatus].title}</Text><Text style={styles.centralStatusBody}>{CENTRAL_STATUS_COPY[centralStatus].body}</Text><View style={styles.centralProgress}><View style={[styles.centralProgressFill, { width: centralStatus === "received" ? "25%" : centralStatus === "dispatching" ? "50%" : centralStatus === "enroute" ? "75%" : "100%" }]} /></View></View><View style={styles.centralStatusActions}><Text style={styles.centralStatusProtocol}>{sosApiId ?? "Protocolo ativo"}</Text>{centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => setCancelVisible(true)} style={({ pressed }) => [styles.centralCancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={15} color={C.red} /><Text style={styles.centralCancelText}>Cancelar</Text></Pressable> : null}</View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
-      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : sosApiStatus === "error" ? "Falha no envio do SOS" : centralStatus === "canceled" ? "Alerta SOS cancelado" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sending" ? "cloud-upload" : "my-location"} size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sending" ? "Enviando para a Central..." : "Obtendo sua localização..."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sending" ? `A API simulada está confirmando o alerta. Tentativa ${sosAttempt} de ${SOS_MAX_ATTEMPTS}.` : "Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max."}</Text><View style={styles.responseBox}><MaterialIcons name={sosApiStatus === "sending" ? "sync" : "gps-fixed"} size={18} color={C.gold} /><View><Text style={styles.responseTitle}>{sosApiStatus === "sending" ? "Retry automático em andamento" : "Captura GPS em andamento"}</Text><Text style={styles.responseBody}>{sosApiStatus === "sending" ? "Se a rede falhar, tentaremos novamente com backoff." : "Mantenha o app aberto por alguns segundos."}</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={28} color={sosApiStatus === "sent" ? C.success : C.red} /></View><Text style={styles.modalHeadline}>{centralStatus === "canceled" ? "O alerta foi cancelado com segurança." : sosApiStatus === "sent" ? "Sua família está sendo assistida." : "Não conseguimos confirmar o envio."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sent" ? "A API simulada confirmou o alerta e a Central Max recebeu o protocolo." : "O alerta foi preparado, mas a API simulada não respondeu após as tentativas. Tente novamente em alguns instantes."}</Text>{sosApiStatus === "sent" ? <View style={styles.responseBox}><MaterialIcons name="cloud-done" size={18} color={C.success} /><View><Text style={styles.responseTitle}>API confirmou recebimento</Text><Text style={styles.responseBody}>{sosApiId ?? "Protocolo gerado"} · {sosLocation ? formatSosCoordinates(sosLocation.latitude, sosLocation.longitude) : "GPS não confirmado"} · {sosContactsNotified} contato(s) avisado(s)</Text></View></View> : null}{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS anexado ao alerta</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta sem coordenadas</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}{sosApiStatus === "sent" && centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => { triggerHaptic(); setCancelVisible(true); }} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={18} color={C.red} /><Text style={styles.cancelButtonText}>Cancelar alerta SOS</Text></Pressable> : null}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL(`tel:${centralPhone}`); else Alert.alert(centralName, `Ligação disponível pelo número ${centralPhone}.`); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
+      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : sosApiStatus === "error" ? "Falha no envio do SOS" : centralStatus === "canceled" ? "Alerta SOS cancelado" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sending" ? "cloud-upload" : "my-location"} size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sending" ? "Enviando para a Central..." : "Obtendo sua localização..."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sending" ? `O backend autenticado está confirmando o alerta. Tentativa ${sosAttempt} de ${SOS_MAX_ATTEMPTS}.` : "Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max."}</Text><View style={styles.responseBox}><MaterialIcons name={sosApiStatus === "sending" ? "sync" : "gps-fixed"} size={18} color={C.gold} /><View><Text style={styles.responseTitle}>{sosApiStatus === "sending" ? "Retry automático em andamento" : "Captura GPS em andamento"}</Text><Text style={styles.responseBody}>{sosApiStatus === "sending" ? "Se a rede falhar, tentaremos novamente com backoff." : "Mantenha o app aberto por alguns segundos."}</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={28} color={sosApiStatus === "sent" ? C.success : C.red} /></View><Text style={styles.modalHeadline}>{centralStatus === "canceled" ? "O alerta foi cancelado com segurança." : sosApiStatus === "sent" ? "Sua família está sendo assistida." : "Não conseguimos confirmar o envio."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sent" ? "O backend autenticado confirmou o alerta e a Central Max recebeu o protocolo." : "O alerta foi preparado, mas o backend não respondeu após as tentativas. Tente novamente em alguns instantes."}</Text>{sosApiStatus === "sent" ? <View style={styles.responseBox}><MaterialIcons name="cloud-done" size={18} color={C.success} /><View><Text style={styles.responseTitle}>Backend confirmou recebimento</Text><Text style={styles.responseBody}>{sosApiId ?? "Protocolo gerado"} · {sosLocation ? formatSosCoordinates(sosLocation.latitude, sosLocation.longitude) : "GPS não confirmado"} · {sosContactsNotified} push(s) entregue(s) ao titular</Text></View></View> : null}{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS anexado ao alerta</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta sem coordenadas</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}{sosApiStatus === "sent" && centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => { triggerHaptic(); setCancelVisible(true); }} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={18} color={C.red} /><Text style={styles.cancelButtonText}>Cancelar alerta SOS</Text></Pressable> : null}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL(`tel:${centralPhone}`); else Alert.alert(centralName, `Ligação disponível pelo número ${centralPhone}.`); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
       <ModalShell visible={profileVisible} onClose={() => setProfileVisible(false)} title="Cadastro do usuário" subtitle="Seus dados ficam salvos neste aparelho">
         <ScrollView style={styles.profileScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.profileModal}>
             <View style={styles.profileAvatar}><MaterialIcons name="person" size={28} color={C.gold} /></View>
             <Text style={styles.profileIntro}>{profile ? "Atualize seus dados para manter seu atendimento Max completo." : "Cadastre seus dados para agilizar o atendimento da Central Max."}</Text>
+            {!isAuthenticated ? <View style={styles.profileSyncError}><MaterialIcons name="lock" size={16} color={C.red} /><Text style={styles.profileSyncErrorText}>Conta Max não autenticada: o perfil será salvo localmente, mas não será sincronizado.</Text></View> : null}
+            {isAuthenticated && pushStatus === "registered" ? <View style={styles.profileSync}><MaterialIcons name="notifications-active" size={16} color={C.success} /><Text style={styles.profileSyncText}>Notificações push ativas neste aparelho.</Text></View> : null}
+            {isAuthenticated && pushStatus === "unavailable" ? <View style={styles.profileSync}><MaterialIcons name="notifications-off" size={16} color={C.gold} /><Text style={styles.profileSyncText}>Push pendente: configure o EXPO_PROJECT_ID em uma build nativa.</Text></View> : null}
             <TextInput value={profileName} onChangeText={setProfileName} placeholder="Nome completo" placeholderTextColor={C.muted} style={styles.profileInput} autoCapitalize="words" />
             <TextInput value={profileEmail} onChangeText={setProfileEmail} placeholder="E-mail" placeholderTextColor={C.muted} style={styles.profileInput} keyboardType="email-address" autoCapitalize="none" />
             <TextInput value={profilePhone} onChangeText={setProfilePhone} placeholder="Telefone" placeholderTextColor={C.muted} style={styles.profileInput} keyboardType="phone-pad" />

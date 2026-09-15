@@ -12,6 +12,10 @@ Use Node.js 22 ou superior e pnpm 9 ou superior. Depois de extrair o pacote, exe
 
 Execute `pnpm dev` para iniciar o servidor tRPC e o Metro Web. Para validar o projeto, execute `pnpm test`, `pnpm check` e `pnpm lint`.
 
+## Backend autenticado e push
+
+O perfil agora é persistido por usuário autenticado nas tabelas `user_profiles` e `push_tokens`. As rotas de perfil, registro de token, SOS e cancelamento exigem sessão OAuth. O SOS envia notificações reais pelo Expo Push Service aos dispositivos autenticados do titular. Configure `EXPO_PROJECT_ID`, credenciais APNs/FCM no EAS e use uma development build ou release build física; consulte `PUSH_NOTIFICATIONS.md` para o procedimento completo.
+
 ## PWA
 
 A versão web está configurada com manifesto instalável em `public/manifest.json`, service worker em `public/sw.js`, metadados PWA no `app.config.ts` e registro do service worker em `app/_layout.tsx`. Gere a versão web com `npx expo export --platform web`. Publique o diretório `dist` em um servidor HTTPS para habilitar a instalação e o cache offline básico.
@@ -22,4 +26,4 @@ O perfil permite cadastrar até três contatos de emergência, definir um único
 
 ## Observação sobre produção
 
-A rota de sincronização e o envio de avisos são simulados para demonstração. Antes de produção, substitua o procedimento por armazenamento autenticado e por um provedor real de notificações push ou SMS, mantendo os dados protegidos e obtendo consentimento dos contatos.
+O envio SMS não está ativado por padrão porque exige provedor, credenciais, número remetente e consentimento. Ele pode ser conectado no backend como um adapter do evento `sos.send`, sem expor chaves no aplicativo.

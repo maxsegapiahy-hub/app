@@ -14,6 +14,7 @@ const config: ExpoConfig = {
   scheme,
   userInterfaceStyle: "dark",
   newArchEnabled: true,
+  extra: { eas: { projectId: process.env.EXPO_PROJECT_ID ?? "" } },
   ios: { supportsTablet: true, bundleIdentifier: bundleId, infoPlist: { ITSAppUsesNonExemptEncryption: false } },
   android: {
     adaptiveIcon: {
@@ -40,6 +41,7 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     ["expo-location", { locationWhenInUsePermission: "Permita que a Max Seg use sua localização para acionar a pronta resposta SOS." }],
+    ["expo-notifications", { icon: "./assets/images/icon.png", color: "#800020", defaultChannel: "default" }],
     ["expo-splash-screen", { image: "./assets/images/splash-icon.png", imageWidth: 200, resizeMode: "contain", backgroundColor: "#080808" }],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },

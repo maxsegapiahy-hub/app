@@ -4,10 +4,24 @@ import { appRouter } from "../server/routers";
 import type { TrpcContext } from "../server/_core/context";
 
 const context: TrpcContext = {
-  user: null,
+  user: { id: 1, openId: "test-user", name: "Carlos Silva", email: "carlos@email.com", loginMethod: "test", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
   req: { protocol: "https", headers: {} } as TrpcContext["req"],
   res: {} as TrpcContext["res"],
 };
+
+const anonymousContext: TrpcContext = { ...context, user: null };
+
+describe("rotas autenticadas", () => {
+  it("recusa sincronização de perfil sem sessão", async () => {
+    await expect(appRouter.createCaller(anonymousContext).profile.sync({
+      name: "Carlos Silva",
+      email: "carlos@email.com",
+      phone: "15999999999",
+      contacts: [],
+      central: { name: "Central Max Apiahy", phone: "153" },
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+});
 
 describe("sos.send", () => {
   it("recebe alerta e coordenadas GPS na API simulada", async () => {
@@ -22,7 +36,8 @@ describe("sos.send", () => {
     expect(result.status).toBe("received");
     expect(result.alertId).toMatch(/^MAX-SOS-/);
     expect(result.locationAttached).toBe(true);
-    expect(result.emergencyContactsNotified).toBe(1);
+    expect(result.emergencyContactsNotified).toBe(0);
+    expect(result.emergencyContactsQueued).toBe(1);
     expect(result.location).toEqual({ latitude: -24.51235, longitude: -48.8422, accuracy: 8 });
   });
 
