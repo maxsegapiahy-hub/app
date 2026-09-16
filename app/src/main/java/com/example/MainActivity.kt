@@ -34,8 +34,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MaxSegTheme {
-                val vm: MaxSegViewModel = viewModel()
+            val vm: MaxSegViewModel = viewModel()
+            val isDarkMode by vm.isDarkMode.collectAsState()
+
+            MaxSegTheme(darkTheme = isDarkMode) {
                 val currentTab by vm.currentTab.collectAsState()
                 val profile by vm.repository.userProfile.collectAsState()
                 val toastMsg by vm.toastMessage.collectAsState()
@@ -66,7 +68,9 @@ class MainActivity : ComponentActivity() {
                                 profileInitial = profileInitial,
                                 onProfileClick = { vm.openProfile() },
                                 onAiClick = { vm.openAi() },
-                                onAdminClick = { vm.openAdmin() }
+                                onAdminClick = { vm.openAdmin() },
+                                isDarkMode = isDarkMode,
+                                onToggleTheme = { vm.toggleTheme() }
                             )
                         },
                         bottomBar = {

@@ -59,7 +59,7 @@ fun PinsScreen(
         // XP Banner Card
         item {
             MaxCard(
-                backgroundColor = Color(0xFF161206),
+                backgroundColor = if (LocalMaxSegColors.current.isDark) Color(0xFF161206) else MaxGoldLight.copy(alpha = 0.2f),
                 borderColor = MaxGold.copy(alpha = 0.5f)
             ) {
                 Row(

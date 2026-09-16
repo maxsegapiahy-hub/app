@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.model.*
 import com.example.ui.MaxSegViewModel
 import com.example.ui.theme.*
@@ -42,15 +43,26 @@ fun SosPickerDialog(
         SosPriority.LOW -> AccentSuccess
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("sos_picker_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("sos_picker_dialog")
+            ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -197,6 +209,7 @@ fun SosPickerDialog(
         }
     }
 }
+}
 
 @Composable
 fun SosCancelDialog(
@@ -250,17 +263,29 @@ fun ProfileDialog(
     val centralPhone by viewModel.editCentralPhone.collectAsState()
     val error by viewModel.profileError.collectAsState()
     val success by viewModel.profileSuccess.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f)
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("profile_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.88f)
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("profile_dialog")
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -287,6 +312,122 @@ fun ProfileDialog(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Theme Selector Card (Day/Night Reading)
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = CarbonDark),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
+                                .testTag("theme_selector_card")
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (isDarkMode) Icons.Filled.DarkMode else Icons.Filled.LightMode,
+                                            contentDescription = null,
+                                            tint = MaxGold,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = "Aparência & Leitura Noturna",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextWhite
+                                            )
+                                            Text(
+                                                text = if (isDarkMode) "Modo Noturno (Escuro) ativo" else "Modo Diurno (Claro) ativo",
+                                                fontSize = 10.sp,
+                                                color = TextMuted
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Dark Mode option
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isDarkMode) MaxGold.copy(alpha = 0.15f) else Color.Transparent)
+                                            .border(
+                                                1.dp,
+                                                if (isDarkMode) MaxGold else BorderDark,
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { viewModel.setDarkMode(true) }
+                                            .padding(vertical = 10.dp, horizontal = 10.dp)
+                                            .testTag("theme_dark_option"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Filled.DarkMode,
+                                                contentDescription = null,
+                                                tint = if (isDarkMode) MaxGold else TextMuted,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Noturno (Escuro)",
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isDarkMode) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isDarkMode) MaxGold else TextWhite
+                                            )
+                                        }
+                                    }
+
+                                    // Light Mode option
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (!isDarkMode) MaxGold.copy(alpha = 0.15f) else Color.Transparent)
+                                            .border(
+                                                1.dp,
+                                                if (!isDarkMode) MaxGold else BorderDark,
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { viewModel.setDarkMode(false) }
+                                            .padding(vertical = 10.dp, horizontal = 10.dp)
+                                            .testTag("theme_light_option"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Filled.LightMode,
+                                                contentDescription = null,
+                                                tint = if (!isDarkMode) MaxGold else TextMuted,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Diurno (Claro)",
+                                                fontSize = 11.sp,
+                                                fontWeight = if (!isDarkMode) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (!isDarkMode) MaxGold else TextWhite
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     item {
                         OutlinedTextField(
                             value = name,
@@ -365,7 +506,7 @@ fun ProfileDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .border(1.dp, BorderDark, RoundedCornerShape(10.dp)),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F0F))
+                            colors = CardDefaults.cardColors(containerColor = CarbonDark)
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Row(
@@ -513,6 +654,7 @@ fun ProfileDialog(
         }
     }
 }
+}
 
 @Composable
 fun MaxAiDialog(
@@ -529,16 +671,27 @@ fun MaxAiDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.82f)
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("max_ai_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.82f)
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("max_ai_dialog")
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -675,6 +828,7 @@ fun MaxAiDialog(
         }
     }
 }
+}
 
 @Composable
 fun PixWithdrawalDialog(
@@ -684,68 +838,80 @@ fun PixWithdrawalDialog(
 ) {
     var pixKey by remember { mutableStateOf("carlos.silva@email.com") }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("pix_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("pix_dialog")
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaxGold.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Filled.AccountBalanceWallet, null, tint = MaxGold, modifier = Modifier.size(24.dp))
-                }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaxGold.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.AccountBalanceWallet, null, tint = MaxGold, modifier = Modifier.size(24.dp))
+                    }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                Text("Saque de Comissões PIX", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                Text("Saldo disponível: R$ %.2f".format(balance), fontSize = 13.sp, color = AccentSuccess, fontWeight = FontWeight.Bold)
+                    Text("Saque de Comissões PIX", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                    Text("Saldo disponível: R$ %.2f".format(balance), fontSize = 13.sp, color = AccentSuccess, fontWeight = FontWeight.Bold)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = pixKey,
-                    onValueChange = { pixKey = it },
-                    label = { Text("Chave PIX (CPF/E-mail/Telefone)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaxGold,
-                        unfocusedBorderColor = BorderDark,
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedLabelColor = MaxGold,
-                        unfocusedLabelColor = TextMuted
+                    OutlinedTextField(
+                        value = pixKey,
+                        onValueChange = { pixKey = it },
+                        label = { Text("Chave PIX (CPF/E-mail/Telefone)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaxGold,
+                            unfocusedBorderColor = BorderDark,
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedLabelColor = MaxGold,
+                            unfocusedLabelColor = TextMuted
+                        )
                     )
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = { onWithdraw(balance) },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaxGold),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Text("Transferir R$ %.2f via PIX".format(balance), fontWeight = FontWeight.Bold, color = BgDark)
-                }
+                    Button(
+                        onClick = { onWithdraw(balance) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaxGold),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("Transferir R$ %.2f via PIX".format(balance), fontWeight = FontWeight.Bold, color = BgDark)
+                    }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                TextButton(onClick = onDismiss) {
-                    Text("Cancelar", color = TextMuted)
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar", color = TextMuted)
+                    }
                 }
             }
         }
@@ -756,40 +922,52 @@ fun PixWithdrawalDialog(
 fun QrEnlargeDialog(
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("qr_enlarge_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("qr_enlarge_dialog")
             ) {
-                Text("QR Code Max Club Apiahy", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                Text("Mostre na tela do caixa para validar descontos", fontSize = 11.sp, color = TextMuted)
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                QrCodeView(size = 200.dp)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text("CARLOS ED. SILVA · ID: MAX-8842-AP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaxGold)
-                Text("Plano Max Total · Válido em toda a rede de Apiaí", fontSize = 10.sp, color = TextMuted)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Fechar", color = TextWhite)
+                    Text("QR Code Max Club Apiahy", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                    Text("Mostre na tela do caixa para validar descontos", fontSize = 11.sp, color = TextMuted)
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    QrCodeView(size = 200.dp)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("CARLOS ED. SILVA · ID: MAX-8842-AP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaxGold)
+                    Text("Plano Max Total · Válido em toda a rede de Apiaí", fontSize = 10.sp, color = TextMuted)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Fechar", color = TextWhite)
+                    }
                 }
             }
         }
@@ -801,54 +979,66 @@ fun CouponDialog(
     merchant: Merchant,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PanelDark,
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                .testTag("coupon_dialog")
+                .fillMaxSize()
+                .imePadding()
+                .systemBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = PanelDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
+                    .testTag("coupon_dialog")
             ) {
-                MaxIconBox(Icons.Filled.LocalOffer, Color(merchant.colorHex), size = 48.dp)
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text("Cupom Exclusivo", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                Text(merchant.name, fontSize = 13.sp, color = MaxGold, fontWeight = FontWeight.Medium)
-                Text(merchant.discount, fontSize = 12.sp, color = AccentSuccess, fontWeight = FontWeight.Bold)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF0D0D0D))
-                        .border(1.dp, MaxGold.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .padding(14.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("CÓDIGO DE DESCONTO", fontSize = 9.sp, color = TextMuted, letterSpacing = 1.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("MAX-${merchant.category.uppercase()}-AP", fontSize = 18.sp, fontWeight = FontWeight.Black, color = MaxGold, letterSpacing = 2.sp)
+                    MaxIconBox(Icons.Filled.LocalOffer, Color(merchant.colorHex), size = 48.dp)
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text("Cupom Exclusivo", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                    Text(merchant.name, fontSize = 13.sp, color = MaxGold, fontWeight = FontWeight.Medium)
+                    Text(merchant.discount, fontSize = 12.sp, color = AccentSuccess, fontWeight = FontWeight.Bold)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF0D0D0D))
+                            .border(1.dp, MaxGold.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .padding(14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("CÓDIGO DE DESCONTO", fontSize = 9.sp, color = TextMuted, letterSpacing = 1.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("MAX-${merchant.category.uppercase()}-AP", fontSize = 18.sp, fontWeight = FontWeight.Black, color = MaxGold, letterSpacing = 2.sp)
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaxGold),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Utilizar no Caixa", color = BgDark, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaxGold),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Utilizar no Caixa", color = BgDark, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

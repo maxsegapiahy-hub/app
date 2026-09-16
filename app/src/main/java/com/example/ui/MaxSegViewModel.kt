@@ -60,6 +60,29 @@ class MaxSegViewModel(application: Application) : AndroidViewModel(application) 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
+    // Theme Mode (Dark/Light)
+    val isDarkMode: StateFlow<Boolean> = repository.isDarkMode
+
+    fun toggleTheme() {
+        repository.toggleDarkMode()
+        val nextMsg = if (repository.isDarkMode.value) {
+            "Modo Escuro ativado (conforto para leitura noturna)"
+        } else {
+            "Modo Claro ativado (ótimo para o dia em Apiaí)"
+        }
+        showToast(nextMsg)
+    }
+
+    fun setDarkMode(isDark: Boolean) {
+        repository.setDarkMode(isDark)
+        val msg = if (isDark) {
+            "Modo Escuro ativado (conforto para leitura noturna)"
+        } else {
+            "Modo Claro ativado (ótimo para o dia em Apiaí)"
+        }
+        showToast(msg)
+    }
+
     // Profile form state
     var editName = MutableStateFlow("")
     var editEmail = MutableStateFlow("")

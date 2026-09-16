@@ -68,13 +68,14 @@ data class SosAlert(
     val emergencyType: EmergencyType,
     val priority: SosPriority,
     val status: SosStatus,
-    val latitude: Double?,
-    val longitude: Double?,
-    val accuracy: Float?,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val accuracy: Float? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val contactsNotified: Int = 0,
     val userName: String = "Carlos Ed. Silva",
-    val userEmail: String = "carlos.silva@email.com"
+    val userEmail: String = "carlos.silva@email.com",
+    val neighborhood: String = "Centro"
 )
 
 data class Merchant(

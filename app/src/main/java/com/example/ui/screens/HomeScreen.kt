@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,10 +79,11 @@ fun HomeScreen(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         // Active SOS Protocol Card (if active)
-        if (activeAlert != null) {
+        val currentAlert = activeAlert
+        if (currentAlert != null) {
             item {
                 ActiveSosBanner(
-                    alert = activeAlert!!,
+                    alert = currentAlert,
                     onCancelClick = { viewModel.openCancelSos() }
                 )
             }
@@ -90,7 +92,7 @@ fun HomeScreen(
         // Operational Status Card
         item {
             MaxCard(
-                backgroundColor = Color(0xFF141414),
+                backgroundColor = PanelDark,
                 borderColor = AccentSuccess.copy(alpha = 0.3f),
                 modifier = Modifier.testTag("status_card")
             ) {
@@ -140,7 +142,7 @@ fun HomeScreen(
         // 1-TAP / 2-SECOND SOS CARD
         item {
             MaxCard(
-                backgroundColor = Color(0xFF16090D),
+                backgroundColor = if (LocalMaxSegColors.current.isDark) Color(0xFF16090D) else MaxBordoLight.copy(alpha = 0.08f),
                 borderColor = MaxBordoLight.copy(alpha = 0.6f),
                 modifier = Modifier.testTag("sos_card")
             ) {
@@ -285,69 +287,205 @@ fun HomeScreen(
             }
         }
 
-        // Quick Actions Grid
+        // Destaque de Benefícios Max Seg
         item {
-            Text(
-                text = "SERVIÇOS RÁPIDOS",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextMuted,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(vertical = 2.dp)
-            )
-        }
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "DESTAQUE DE BENEFÍCIOS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaxGold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Vantagens exclusivas do seu plano em Apiaí",
+                            fontSize = 10.sp,
+                            color = TextMuted
+                        )
+                    }
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaxGold, modifier = Modifier.size(16.dp))
+                }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Telemedicina
-                QuickActionCard(
-                    icon = Icons.Filled.MedicalServices,
-                    iconColor = AccentRed,
-                    title = "Telemedicina",
-                    subtitle = "Médico 24h sem fila",
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.setTab(MainTab.TELEMEDICINE) }
-                )
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Clube Apiaí
-                QuickActionCard(
-                    icon = Icons.Filled.LocalOffer,
-                    iconColor = MaxGold,
-                    title = "Clube Apiaí",
-                    subtitle = "Até 70% desconto",
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.setTab(MainTab.CLUB) }
-                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    item {
+                        BenefitHighlightCard(
+                            tag = "SAÚDE 24H",
+                            tagColor = AccentRed,
+                            title = "Telemedicina Sem Fila",
+                            description = "Consultas médicas por vídeo ilimitadas para você e dependentes a qualquer hora do dia ou da noite.",
+                            icon = Icons.Filled.MedicalServices,
+                            iconColor = AccentRed,
+                            actionLabel = "Consultar Médico",
+                            onClick = { viewModel.setTab(MainTab.TELEMEDICINE) }
+                        )
+                    }
+
+                    item {
+                        BenefitHighlightCard(
+                            tag = "ATÉ 70% OFF",
+                            tagColor = MaxGold,
+                            title = "Clube de Vantagens Apiaí",
+                            description = "Descontos reais no caixa de farmácias, postos de combustível e mercados credenciados da cidade.",
+                            icon = Icons.Filled.LocalOffer,
+                            iconColor = MaxGold,
+                            actionLabel = "Ver Parceiros",
+                            onClick = { viewModel.setTab(MainTab.CLUB) }
+                        )
+                    }
+
+                    item {
+                        BenefitHighlightCard(
+                            tag = "RESPOSTA RÁPIDA",
+                            tagColor = AccentBlue,
+                            title = "Viatura em até 5 Minutos",
+                            description = "Pronta resposta motorizada patrulhando continuamente o Centro, Pinheiros e Santa Bárbara.",
+                            icon = Icons.Filled.Shield,
+                            iconColor = AccentBlue,
+                            actionLabel = "Status Operacional",
+                            onClick = { viewModel.openAdmin() }
+                        )
+                    }
+
+                    item {
+                        BenefitHighlightCard(
+                            tag = "RENDA EXTRA",
+                            tagColor = AccentSuccess,
+                            title = "Comissões Mensais no PIX",
+                            description = "Receba até 15% de comissão recorrente por indicar novos clientes e comércios parceiros.",
+                            icon = Icons.Filled.MonetizationOn,
+                            iconColor = AccentSuccess,
+                            actionLabel = "Abrir Carteira",
+                            onClick = { viewModel.setTab(MainTab.AFFILIATE) }
+                        )
+                    }
+                }
             }
         }
 
+        // Apresentação dos Serviços Max Seg com Ícones
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Max IA
-                QuickActionCard(
-                    icon = Icons.Filled.SmartToy,
-                    iconColor = AccentBlue,
-                    title = "Max IA",
-                    subtitle = "Assistente 24h",
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.openAi() }
-                )
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "SERVIÇOS MAX SEG",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMuted,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Soluções integradas de proteção e conveniência",
+                            fontSize = 10.sp,
+                            color = TextMuted
+                        )
+                    }
+                    Text(
+                        text = "6 serviços",
+                        fontSize = 10.sp,
+                        color = MaxGold,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-                // Meu QR Code
-                QuickActionCard(
-                    icon = Icons.Filled.QrCode2,
-                    iconColor = AccentSuccess,
-                    title = "Meu QR Code",
-                    subtitle = "Carteira digital",
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.openQr() }
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Linha 1: SOS Pronta Resposta & Telemedicina
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.Emergency,
+                        iconColor = AccentRed,
+                        badgeText = "SOS 24h",
+                        title = "Pronta Resposta",
+                        description = "Despacho tático imediato de viatura com rastreamento GPS em tempo real.",
+                        onClick = { viewModel.openSosPicker() },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.HealthAndSafety,
+                        iconColor = Color(0xFF38BDF8),
+                        badgeText = "Sem Fila",
+                        title = "Telemedicina",
+                        description = "Plantão médico por vídeo sem carência e sem deslocamento.",
+                        onClick = { viewModel.setTab(MainTab.TELEMEDICINE) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Linha 2: Clube de Vantagens & Rondas Preventivas
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.Loyalty,
+                        iconColor = MaxGold,
+                        badgeText = "Até 70% OFF",
+                        title = "Clube Max Apiaí",
+                        description = "Economia em remédios, combustível e compras no comércio local.",
+                        onClick = { viewModel.setTab(MainTab.CLUB) },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.DirectionsCar,
+                        iconColor = AccentSuccess,
+                        badgeText = "Noturna",
+                        title = "Rondas Preventivas",
+                        description = "Patrulhas com relatório de passagem nas ruas do seu perímetro.",
+                        onClick = { viewModel.openAdmin() },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Linha 3: Max IA & Afiliados PIX
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.SmartToy,
+                        iconColor = Color(0xFFA855F7),
+                        badgeText = "IA 24h",
+                        title = "Max IA",
+                        description = "Orientador inteligente para segurança, saúde e benefícios da cidade.",
+                        onClick = { viewModel.openAi() },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    ServiceShowcaseCard(
+                        icon = Icons.Filled.AccountBalanceWallet,
+                        iconColor = Color(0xFFF59E0B),
+                        badgeText = "PIX Direto",
+                        title = "Carteira & PIX",
+                        description = "Gestão de plano, comissões de indicações e saque instantâneo.",
+                        onClick = { viewModel.setTab(MainTab.AFFILIATE) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
@@ -396,6 +534,132 @@ fun HomeScreen(
 }
 
 @Composable
+fun BenefitHighlightCard(
+    tag: String,
+    tagColor: Color,
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    actionLabel: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, BorderDark, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = PanelDark)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MaxIconBox(icon = icon, color = iconColor, size = 36.dp)
+                    MaxPill(text = tag, color = tagColor)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextWhite
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = description,
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    lineHeight = 16.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = actionLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaxGold
+                )
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaxGold,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ServiceShowcaseCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    badgeText: String,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = PanelDark)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MaxIconBox(icon, iconColor, size = 34.dp)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(iconColor.copy(alpha = 0.14f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(badgeText, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = iconColor)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = description,
+                fontSize = 10.sp,
+                color = TextMuted,
+                lineHeight = 14.sp,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+@Composable
 fun QuickActionCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     iconColor: Color,
@@ -429,7 +693,9 @@ fun ActiveSosBanner(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.5.dp, AccentRed, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1D060A))
+        colors = CardDefaults.cardColors(
+            containerColor = if (LocalMaxSegColors.current.isDark) Color(0xFF1D060A) else AccentRed.copy(alpha = 0.08f)
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(

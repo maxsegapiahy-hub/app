@@ -30,6 +30,8 @@ fun MaxHeader(
     onProfileClick: () -> Unit,
     onAiClick: () -> Unit,
     onAdminClick: () -> Unit,
+    isDarkMode: Boolean = true,
+    onToggleTheme: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -186,6 +188,25 @@ fun MaxHeader(
                     )
                 }
 
+                // Theme Toggle Button (Light/Dark Mode)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(PanelDark)
+                        .border(1.dp, BorderDark, RoundedCornerShape(8.dp))
+                        .clickable(onClick = onToggleTheme)
+                        .testTag("header_theme_toggle_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        contentDescription = if (isDarkMode) "Alternar para Modo Claro" else "Alternar para Modo Escuro",
+                        tint = if (isDarkMode) MaxGold else MaxBordoLight,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
                 // Tier Pill
                 MaxPill(text = "PRATA", color = MaxGold)
             }
@@ -300,7 +321,7 @@ fun MaxPill(
             text = text,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = if (filled) BgDark else color,
+            color = if (filled) Color(0xFF0F172A) else color,
             letterSpacing = 0.5.sp
         )
     }
@@ -361,7 +382,7 @@ fun QrCodeView(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .background(if (filled) BgDark else Color.White)
+                                .background(if (filled) Color.Black else Color.White)
                         )
                     }
                 }

@@ -121,7 +121,7 @@ fun ClubScreen(
                             text = catLabel,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) BgDark else TextWhite
+                            color = if (isSelected) Color(0xFF0F172A) else TextWhite
                         )
                     }
                 }
@@ -196,7 +196,7 @@ fun MerchantCard(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Cupom", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BgDark)
+                Text("Cupom", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
             }
         }
     }

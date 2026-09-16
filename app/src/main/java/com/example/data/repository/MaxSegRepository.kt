@@ -28,12 +28,80 @@ class MaxSegRepository(context: Context) {
     private val _centralProfile = MutableStateFlow(loadInitialCentral())
     val centralProfile: StateFlow<CentralProfile> = _centralProfile.asStateFlow()
 
+    // Theme Mode: Dark (recommended for night patrols/reading) or Light (crisp daylight reading)
+    private val _isDarkMode = MutableStateFlow(prefs.getBoolean("is_dark_mode", true))
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    fun setDarkMode(enabled: Boolean) {
+        prefs.edit().putBoolean("is_dark_mode", enabled).apply()
+        _isDarkMode.value = enabled
+    }
+
+    fun toggleDarkMode() {
+        setDarkMode(!_isDarkMode.value)
+    }
+
     // Current active alert (null if idle)
     private val _activeAlert = MutableStateFlow<SosAlert?>(null)
     val activeAlert: StateFlow<SosAlert?> = _activeAlert.asStateFlow()
 
     // All alerts for Admin panel
-    private val _allAlerts = MutableStateFlow<List<SosAlert>>(emptyList())
+    private val _allAlerts = MutableStateFlow<List<SosAlert>>(
+        listOf(
+            SosAlert(
+                alertId = "SOS-8842-AP",
+                emergencyType = EmergencyType.SECURITY,
+                priority = SosPriority.CRITICAL,
+                status = SosStatus.RECEIVED,
+                latitude = -24.51235,
+                longitude = -48.84220,
+                accuracy = 8.5f,
+                contactsNotified = 2,
+                userName = "Carlos Ed. Silva",
+                userEmail = "carlos.silva@email.com",
+                neighborhood = "Centro"
+            ),
+            SosAlert(
+                alertId = "SOS-7120-AP",
+                emergencyType = EmergencyType.MEDICAL,
+                priority = SosPriority.HIGH,
+                status = SosStatus.DISPATCHING,
+                latitude = -24.50890,
+                longitude = -48.83540,
+                accuracy = 12.0f,
+                contactsNotified = 1,
+                userName = "Marcos Vinicius",
+                userEmail = "marcos.v@email.com",
+                neighborhood = "Pinheiros"
+            ),
+            SosAlert(
+                alertId = "SOS-5541-AP",
+                emergencyType = EmergencyType.SECURITY,
+                priority = SosPriority.MEDIUM,
+                status = SosStatus.ENROUTE,
+                latitude = -24.52110,
+                longitude = -48.85100,
+                accuracy = 9.0f,
+                contactsNotified = 1,
+                userName = "Drogaria Central (Comércio)",
+                userEmail = "contato@drogaria.com",
+                neighborhood = "Santa Bárbara"
+            ),
+            SosAlert(
+                alertId = "SOS-3912-AP",
+                emergencyType = EmergencyType.OTHER,
+                priority = SosPriority.LOW,
+                status = SosStatus.ARRIVED,
+                latitude = -24.50520,
+                longitude = -48.82900,
+                accuracy = 15.0f,
+                contactsNotified = 0,
+                userName = "Juliana Alencar",
+                userEmail = "juliana.a@email.com",
+                neighborhood = "Vila Nova"
+            )
+        )
+    )
     val allAlerts: StateFlow<List<SosAlert>> = _allAlerts.asStateFlow()
 
     // AI Messages
@@ -218,7 +286,14 @@ class MaxSegRepository(context: Context) {
 
     fun validateUserProfile(profile: UserProfile): String? {
         if (profile.name.trim().length < 2) return "Informe seu nome completo."
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(profile.email.trim()).matches()) {
+        val email = profile.email.trim()
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        val isEmailValid = try {
+            android.util.Patterns.EMAIL_ADDRESS?.matcher(email)?.matches() ?: emailRegex.matches(email)
+        } catch (_: Exception) {
+            emailRegex.matches(email)
+        }
+        if (!isEmailValid) {
             return "Informe um e-mail válido."
         }
         if (profile.phone.filter { it.isDigit() }.length < 10) return "Informe um telefone válido."
@@ -248,7 +323,13 @@ class MaxSegRepository(context: Context) {
         return String.format(java.util.Locale.US, "%.5f, %.5f", latitude, longitude)
     }
 
-    fun triggerSos(type: EmergencyType, latitude: Double? = -24.51235, longitude: Double? = -48.84220, accuracy: Float? = 8.5f): SosAlert {
+    fun triggerSos(
+        type: EmergencyType,
+        latitude: Double? = -24.51235,
+        longitude: Double? = -48.84220,
+        accuracy: Float? = 8.5f,
+        neighborhood: String = "Centro"
+    ): SosAlert {
         alertProgressionJob?.cancel()
         val priorityRule = getSosPriority(type)
         val shortId = "SOS-${(1000..9999).random()}-AP"
@@ -262,7 +343,8 @@ class MaxSegRepository(context: Context) {
             accuracy = accuracy,
             contactsNotified = _userProfile.value.contacts.size,
             userName = _userProfile.value.name,
-            userEmail = _userProfile.value.email
+            userEmail = _userProfile.value.email,
+            neighborhood = neighborhood
         )
 
         _activeAlert.value = alert

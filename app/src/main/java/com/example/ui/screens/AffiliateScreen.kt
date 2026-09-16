@@ -64,7 +64,7 @@ fun AffiliateScreen(
         // Commission Balance Card
         item {
             MaxCard(
-                backgroundColor = Color(0xFF16090D),
+                backgroundColor = if (LocalMaxSegColors.current.isDark) Color(0xFF16090D) else MaxBordoLight.copy(alpha = 0.08f),
                 borderColor = MaxBordoLight.copy(alpha = 0.6f)
             ) {
                 Row(
@@ -247,7 +247,9 @@ fun AffiliateScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(1.dp, MaxGold.copy(alpha = 0.4f), RoundedCornerShape(14.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF131006))
+                colors = CardDefaults.cardColors(
+                    containerColor = if (LocalMaxSegColors.current.isDark) Color(0xFF131006) else MaxGoldLight.copy(alpha = 0.25f)
+                )
             ) {
                 Row(
                     modifier = Modifier

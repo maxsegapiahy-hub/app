@@ -70,7 +70,7 @@ fun TelemedicineScreen(
         // Live Medical Status Card
         item {
             MaxCard(
-                backgroundColor = Color(0xFF16090D),
+                backgroundColor = if (LocalMaxSegColors.current.isDark) Color(0xFF16090D) else MaxBordoLight.copy(alpha = 0.08f),
                 borderColor = MaxBordoLight.copy(alpha = 0.6f)
             ) {
                 Row(
