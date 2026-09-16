@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateEmergencyContact, validateUserProfile } from "../shared/max-seg";
+import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosPriority, getSosRetryDelayMs, isSosHoldComplete, SOS_MAX_ATTEMPTS, validateEmergencyContact, validateUserProfile } from "../shared/max-seg";
 
 describe("Max Seg & Max Saúde", () => {
   it("filtra parceiros do Clube por categoria e preserva todos", () => {
@@ -41,6 +41,13 @@ describe("Max Seg & Max Saúde", () => {
     expect(CENTRAL_MAX_PROFILE.phone).toBe("153");
     expect(CENTRAL_MAX_PROFILE.status).toBe("online");
     expect(CENTRAL_MAX_PROFILE.channels).toContain("SOS com localização GPS");
+  });
+
+  it("classifica o SOS por tipo de emergência", () => {
+    expect(getSosPriority("fire").priority).toBe("critical");
+    expect(getSosPriority("security").priority).toBe("critical");
+    expect(getSosPriority("medical").priority).toBe("high");
+    expect(getSosPriority("other").priority).toBe("medium");
   });
 
   it("valida nome, e-mail e telefone do cadastro", () => {

@@ -21,19 +21,26 @@ describe("rotas autenticadas", () => {
       central: { name: "Central Max Apiahy", phone: "153" },
     })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("recusa painel da Central para usuário comum", async () => {
+    await expect(appRouter.createCaller(context).central.admin.get()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
 
 describe("sos.send", () => {
-  it("recebe alerta e coordenadas GPS na API simulada", async () => {
+  it("recebe alerta persistido e classifica emergência crítica", async () => {
     const result = await appRouter.createCaller(context).sos.send({
       latitude: -24.51235,
       longitude: -48.8422,
       accuracy: 8,
       platform: "ios",
+      emergencyType: "fire",
       contacts: [{ name: "Ana Silva", phone: "15988887777", relationship: "Irmã" }],
     });
 
     expect(result.status).toBe("received");
+    expect(result.priority).toBe("critical");
+    expect(result.emergencyType).toBe("fire");
     expect(result.alertId).toMatch(/^MAX-SOS-/);
     expect(result.locationAttached).toBe(true);
     expect(result.emergencyContactsNotified).toBe(0);

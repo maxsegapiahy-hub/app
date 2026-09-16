@@ -1,5 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
@@ -21,7 +22,7 @@ import {
 } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
-import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosRetryDelayMs, SOS_MAX_ATTEMPTS, type EmergencyContact, type UserProfileInput, validateEmergencyContact, validateUserProfile } from "@/shared/max-seg";
+import { CENTRAL_MAX_PROFILE, filterByCategory, formatSosCoordinates, getMaxAiReply, getSosPriority, getSosRetryDelayMs, SOS_MAX_ATTEMPTS, type EmergencyContact, type EmergencyType, type UserProfileInput, validateEmergencyContact, validateUserProfile } from "@/shared/max-seg";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -136,7 +137,7 @@ function ModalShell({ visible, onClose, children, title, subtitle }: { visible: 
   );
 }
 
-function Header({ onAi, onProfile, profile }: { onAi: () => void; onProfile: () => void; profile: UserProfileInput | null }) {
+function Header({ onAi, onProfile, onAdmin, profile, isAdmin }: { onAi: () => void; onProfile: () => void; onAdmin: () => void; profile: UserProfileInput | null; isAdmin: boolean }) {
   return (
     <View style={styles.header}>
       <View style={styles.brandRow}>
@@ -155,10 +156,24 @@ function Header({ onAi, onProfile, profile }: { onAi: () => void; onProfile: () 
           <MaterialIcons name="smart-toy" size={18} color={C.gold} />
           <View style={styles.notificationDot} />
         </Pressable>
+        {isAdmin ? <Pressable onPress={onAdmin} style={({ pressed }) => [styles.aiButton, pressed && styles.pressed]} accessibilityLabel="Abrir painel administrativo"><MaterialIcons name="admin-panel-settings" size={18} color={C.gold} /></Pressable> : null}
         <Pill color={C.gold}>PRATA</Pill>
       </View>
     </View>
   );
+}
+
+function SosTypePicker({ value, onChange, onConfirm }: { value: EmergencyType; onChange: (value: EmergencyType) => void; onConfirm: () => void }) {
+  const options: { value: EmergencyType; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+    { value: "security", label: "Segurança", icon: "security" },
+    { value: "medical", label: "Saúde", icon: "medical-services" },
+    { value: "fire", label: "Incêndio", icon: "local-fire-department" },
+    { value: "accident", label: "Acidente", icon: "car-crash" },
+    { value: "other", label: "Outra", icon: "help-outline" },
+  ];
+  const priority = getSosPriority(value);
+  const priorityColor = priority.priority === "critical" ? C.red : priority.priority === "high" ? C.gold : C.blue;
+  return <View style={styles.sosPicker}><View style={styles.modalIconRed}><MaterialIcons name="warning-amber" size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>Qual é o tipo de emergência?</Text><Text style={styles.modalBody}>A classificação ajuda a Central Max a priorizar o despacho correto.</Text><View style={styles.sosTypeGrid}>{options.map((option) => <Pressable key={option.value} onPress={() => { triggerHaptic(); onChange(option.value); }} style={[styles.sosTypeOption, value === option.value && styles.sosTypeOptionActive]}><MaterialIcons name={option.icon} size={20} color={value === option.value ? C.gold : C.muted} /><Text style={[styles.sosTypeText, value === option.value && styles.sosTypeTextActive]}>{option.label}</Text></Pressable>)}</View><View style={styles.priorityPreview}><MaterialIcons name="priority-high" size={18} color={priorityColor} /><View><Text style={styles.responseTitle}>Prioridade {priority.label}</Text><Text style={styles.responseBody}>{priority.explanation}</Text></View></View><Pressable onPress={onConfirm} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="send" size={18} color={C.white} /><Text style={styles.buttonText}>Enviar alerta SOS</Text></Pressable><Text style={styles.sosPickerHint}>O GPS será capturado após a confirmação.</Text></View>;
 }
 
 function BottomNav({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
@@ -185,7 +200,7 @@ function BottomNav({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }
   );
 }
 
-function HomeView({ onNavigate, onSos, onAi }: { onNavigate: (tab: Tab) => void; onSos: () => void; onAi: () => void }) {
+function HomeView({ onNavigate, onSos, onAi, centralProfile }: { onNavigate: (tab: Tab) => void; onSos: () => void; onAi: () => void; centralProfile?: { name: string; city: string; responseTarget: string; status: "online" | "degraded" | "offline" } }) {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [holding, setHolding] = useState(false);
 
@@ -210,11 +225,11 @@ function HomeView({ onNavigate, onSos, onAi }: { onNavigate: (tab: Tab) => void;
       <Card style={styles.statusCard}>
         <View style={styles.statusCardGlow}><MaterialIcons name="shield" size={76} color={C.success} /></View>
         <View style={styles.rowBetween}>
-          <Text style={styles.eyebrowSuccess}>● SISTEMA 100% OPERACIONAL</Text>
-          <Text style={styles.tinyMuted}>Apiaí · Centro</Text>
+          <Text style={[styles.eyebrowSuccess, centralProfile?.status === "degraded" && { color: C.gold }, centralProfile?.status === "offline" && { color: C.red }]}>● {centralProfile?.status === "online" ? "SISTEMA 100% OPERACIONAL" : centralProfile?.status === "degraded" ? "CENTRAL EM ATENÇÃO" : "CENTRAL OFFLINE"}</Text>
+          <Text style={styles.tinyMuted}>{centralProfile?.city ?? "Apiaí · Centro"}</Text>
         </View>
         <Text style={styles.cardTitle}>Sua residência & família protegidas</Text>
-        <Text style={styles.bodyText}>Viatura Max Ronda em patrulha na sua região. Pronta resposta a 3,2 min de você.</Text>
+        <Text style={styles.bodyText}>{centralProfile?.name ?? "Central Max Apiahy"} · Viatura Max Ronda em patrulha na sua região. {centralProfile?.responseTarget ?? "Pronta resposta a 3,2 min de você."}</Text>
       </Card>
 
       <Card style={styles.sosCard}>
@@ -353,7 +368,9 @@ function PinsView() {
 }
 
 export default function HomeScreen() {
-  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
+  const centralProfileQuery = trpc.central.profile.useQuery(undefined, { refetchInterval: 5000 });
   const [tab, setTab] = useState<Tab>("home");
   const [sosVisible, setSosVisible] = useState(false);
   const [sosSending, setSosSending] = useState(false);
@@ -364,6 +381,7 @@ export default function HomeScreen() {
   const [sosApiId, setSosApiId] = useState<string | null>(null);
   const [sosContactsNotified, setSosContactsNotified] = useState(0);
   const [sosAttempt, setSosAttempt] = useState(0);
+  const [emergencyType, setEmergencyType] = useState<EmergencyType>("security");
   const [centralStatus, setCentralStatus] = useState<"idle" | "received" | "dispatching" | "enroute" | "arrived" | "canceled">("idle");
   const [cancelVisible, setCancelVisible] = useState(false);
   const [cancelSending, setCancelSending] = useState(false);
@@ -517,8 +535,22 @@ export default function HomeScreen() {
     setEmergencyContacts((current) => current.map((contact, contactIndex) => ({ ...contact, isPrimary: contactIndex === index })));
   };
 
-  const handleSos = async () => {
+  const openSos = () => {
     if (!isAuthenticated) {
+      Alert.alert("Autenticação necessária", "Entre com sua conta Max para enviar um alerta SOS autenticado.");
+      return;
+    }
+    setSosVisible(true);
+    setSosSending(false);
+    setSosApiStatus("idle");
+    setSosApiId(null);
+    setSosLocation(null);
+    setSosLocationError(false);
+    setCentralStatus("idle");
+  };
+
+  const handleSos = async () => {
+      if (!isAuthenticated) {
       Alert.alert("Autenticação necessária", "Entre com sua conta Max para enviar um alerta SOS autenticado.");
       return;
     }
@@ -555,6 +587,7 @@ export default function HomeScreen() {
           longitude: capturedLocation?.longitude ?? null,
           accuracy: capturedLocation?.accuracy ?? null,
           platform: Platform.OS,
+          emergencyType,
           contacts: emergencyContacts,
         });
         setSosApiId(response.alertId);
@@ -593,12 +626,12 @@ export default function HomeScreen() {
     }
   };
 
-  const content = tab === "home" ? <HomeView onNavigate={setTab} onSos={() => void handleSos()} onAi={() => setAiVisible(true)} /> : tab === "carteira" ? <WalletView onQr={() => setQrVisible(true)} /> : tab === "afiliado" ? <AffiliateView onPix={() => setPixVisible(true)} /> : tab === "clube" ? <ClubView onCoupon={setCoupon} /> : tab === "pins" ? <PinsView /> : <TelemedicineView onBack={() => setTab("home")} />;
+  const content = tab === "home" ? <HomeView onNavigate={setTab} onSos={openSos} onAi={() => setAiVisible(true)} /> : tab === "carteira" ? <WalletView onQr={() => setQrVisible(true)} /> : tab === "afiliado" ? <AffiliateView onPix={() => setPixVisible(true)} /> : tab === "clube" ? <ClubView onCoupon={setCoupon} /> : tab === "pins" ? <PinsView /> : <TelemedicineView onBack={() => setTab("home")} />;
 
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]} containerClassName="bg-background" safeAreaClassName="bg-background">
-      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} onProfile={openProfile} profile={profile} /><View style={styles.main}>{content}</View>{sosNoticeVisible ? <View style={[styles.sosToast, centralStatus !== "idle" && styles.sosToastRaised, sosApiStatus === "error" && styles.sosToastError]}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={19} color={sosApiStatus === "sent" ? C.success : C.red} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>{sosApiStatus === "sent" ? "SOS recebido pela API Max" : "Falha ao enviar SOS"}</Text><Text style={styles.sosToastBody}>{sosApiStatus === "sent" ? `${sosLocation ? "GPS anexado" : "Sem GPS"} · protocolo confirmado.` : "Tente novamente ou fale com a Central."}</Text></View></View> : null}{centralStatus !== "idle" ? <View style={styles.centralStatusCard}><View style={styles.centralStatusIcon}><MaterialIcons name={CENTRAL_STATUS_COPY[centralStatus].icon} size={20} color={C.success} /></View><View style={{ flex: 1 }}><Text style={styles.centralStatusTitle}>{CENTRAL_STATUS_COPY[centralStatus].title}</Text><Text style={styles.centralStatusBody}>{CENTRAL_STATUS_COPY[centralStatus].body}</Text><View style={styles.centralProgress}><View style={[styles.centralProgressFill, { width: centralStatus === "received" ? "25%" : centralStatus === "dispatching" ? "50%" : centralStatus === "enroute" ? "75%" : "100%" }]} /></View></View><View style={styles.centralStatusActions}><Text style={styles.centralStatusProtocol}>{sosApiId ?? "Protocolo ativo"}</Text>{centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => setCancelVisible(true)} style={({ pressed }) => [styles.centralCancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={15} color={C.red} /><Text style={styles.centralCancelText}>Cancelar</Text></Pressable> : null}</View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
-      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosSending ? "Confirmando alerta SOS" : sosApiStatus === "error" ? "Falha no envio do SOS" : centralStatus === "canceled" ? "Alerta SOS cancelado" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sending" ? "cloud-upload" : "my-location"} size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sending" ? "Enviando para a Central..." : "Obtendo sua localização..."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sending" ? `O backend autenticado está confirmando o alerta. Tentativa ${sosAttempt} de ${SOS_MAX_ATTEMPTS}.` : "Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max."}</Text><View style={styles.responseBox}><MaterialIcons name={sosApiStatus === "sending" ? "sync" : "gps-fixed"} size={18} color={C.gold} /><View><Text style={styles.responseTitle}>{sosApiStatus === "sending" ? "Retry automático em andamento" : "Captura GPS em andamento"}</Text><Text style={styles.responseBody}>{sosApiStatus === "sending" ? "Se a rede falhar, tentaremos novamente com backoff." : "Mantenha o app aberto por alguns segundos."}</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={28} color={sosApiStatus === "sent" ? C.success : C.red} /></View><Text style={styles.modalHeadline}>{centralStatus === "canceled" ? "O alerta foi cancelado com segurança." : sosApiStatus === "sent" ? "Sua família está sendo assistida." : "Não conseguimos confirmar o envio."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sent" ? "O backend autenticado confirmou o alerta e a Central Max recebeu o protocolo." : "O alerta foi preparado, mas o backend não respondeu após as tentativas. Tente novamente em alguns instantes."}</Text>{sosApiStatus === "sent" ? <View style={styles.responseBox}><MaterialIcons name="cloud-done" size={18} color={C.success} /><View><Text style={styles.responseTitle}>Backend confirmou recebimento</Text><Text style={styles.responseBody}>{sosApiId ?? "Protocolo gerado"} · {sosLocation ? formatSosCoordinates(sosLocation.latitude, sosLocation.longitude) : "GPS não confirmado"} · {sosContactsNotified} push(s) entregue(s) ao titular</Text></View></View> : null}{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS anexado ao alerta</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta sem coordenadas</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}{sosApiStatus === "sent" && centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => { triggerHaptic(); setCancelVisible(true); }} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={18} color={C.red} /><Text style={styles.cancelButtonText}>Cancelar alerta SOS</Text></Pressable> : null}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL(`tel:${centralPhone}`); else Alert.alert(centralName, `Ligação disponível pelo número ${centralPhone}.`); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
+      <View style={styles.appShell}><Header onAi={() => setAiVisible(true)} onProfile={openProfile} onAdmin={() => router.push("/admin")} isAdmin={user?.role === "admin"} profile={profile} /><View style={styles.main}>{tab === "home" ? <HomeView onNavigate={setTab} onSos={openSos} onAi={() => setAiVisible(true)} centralProfile={centralProfileQuery.data} /> : content}</View>{sosNoticeVisible ? <View style={[styles.sosToast, centralStatus !== "idle" && styles.sosToastRaised, sosApiStatus === "error" && styles.sosToastError]}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={19} color={sosApiStatus === "sent" ? C.success : C.red} /><View style={{ flex: 1 }}><Text style={styles.sosToastTitle}>{sosApiStatus === "sent" ? "SOS recebido pela API Max" : "Falha ao enviar SOS"}</Text><Text style={styles.sosToastBody}>{sosApiStatus === "sent" ? `${sosLocation ? "GPS anexado" : "Sem GPS"} · protocolo confirmado.` : "Tente novamente ou fale com a Central."}</Text></View></View> : null}{centralStatus !== "idle" ? <View style={styles.centralStatusCard}><View style={styles.centralStatusIcon}><MaterialIcons name={CENTRAL_STATUS_COPY[centralStatus].icon} size={20} color={C.success} /></View><View style={{ flex: 1 }}><Text style={styles.centralStatusTitle}>{CENTRAL_STATUS_COPY[centralStatus].title}</Text><Text style={styles.centralStatusBody}>{CENTRAL_STATUS_COPY[centralStatus].body}</Text><View style={styles.centralProgress}><View style={styles.centralProgressFill} /></View></View><View style={styles.centralStatusActions}><Text style={styles.centralStatusProtocol}>{sosApiId ?? "Protocolo ativo"}</Text>{centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => setCancelVisible(true)} style={({ pressed }) => [styles.centralCancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={15} color={C.red} /><Text style={styles.centralCancelText}>Cancelar</Text></Pressable> : null}</View></View> : null}{tab !== "telemedicina" ? <BottomNav tab={tab} onChange={setTab} /> : null}</View>
+      <ModalShell visible={sosVisible} onClose={() => setSosVisible(false)} title={sosApiStatus === "idle" ? "Classificar alerta SOS" : sosSending ? "Confirmando alerta SOS" : sosApiStatus === "error" ? "Falha no envio do SOS" : centralStatus === "canceled" ? "Alerta SOS cancelado" : "Alerta SOS enviado"} subtitle="Central Max Apiahy · protocolo prioritário"><View style={styles.modalSuccess}>{sosApiStatus === "idle" && !sosSending ? <SosTypePicker value={emergencyType} onChange={setEmergencyType} onConfirm={() => void handleSos()} /> : sosSending ? <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sending" ? "cloud-upload" : "my-location"} size={28} color={C.gold} /></View><Text style={styles.modalHeadline}>{sosApiStatus === "sending" ? "Enviando para a Central..." : "Obtendo sua localização..."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sending" ? `O backend autenticado está confirmando o alerta. Tentativa ${sosAttempt} de ${SOS_MAX_ATTEMPTS}.` : "Estamos solicitando o GPS de alta precisão para anexar ao alerta da Central Max."}</Text><View style={styles.responseBox}><MaterialIcons name={sosApiStatus === "sending" ? "sync" : "gps-fixed"} size={18} color={C.gold} /><View><Text style={styles.responseTitle}>{sosApiStatus === "sending" ? "Retry automático em andamento" : "Captura GPS em andamento"}</Text><Text style={styles.responseBody}>{sosApiStatus === "sending" ? "Se a rede falhar, tentaremos novamente com backoff." : "Mantenha o app aberto por alguns segundos."}</Text></View></View></> : <><View style={styles.modalIconRed}><MaterialIcons name={sosApiStatus === "sent" ? "check-circle" : "error-outline"} size={28} color={sosApiStatus === "sent" ? C.success : C.red} /></View><Text style={styles.modalHeadline}>{centralStatus === "canceled" ? "O alerta foi cancelado com segurança." : sosApiStatus === "sent" ? "Sua família está sendo assistida." : "Não conseguimos confirmar o envio."}</Text><Text style={styles.modalBody}>{sosApiStatus === "sent" ? "O backend autenticado confirmou o alerta e a Central Max recebeu o protocolo." : "O alerta foi preparado, mas o backend não respondeu após as tentativas. Tente novamente em alguns instantes."}</Text>{sosApiStatus === "sent" ? <View style={styles.responseBox}><MaterialIcons name="cloud-done" size={18} color={C.success} /><View><Text style={styles.responseTitle}>Backend confirmou recebimento</Text><Text style={styles.responseBody}>{sosApiId ?? "Protocolo gerado"} · {sosLocation ? formatSosCoordinates(sosLocation.latitude, sosLocation.longitude) : "GPS não confirmado"} · {sosContactsNotified} push(s) entregue(s) ao titular</Text></View></View> : null}{sosLocation ? <View style={styles.responseBox}><MaterialIcons name="gps-fixed" size={18} color={C.success} /><View><Text style={styles.responseTitle}>GPS anexado ao alerta</Text><Text style={styles.responseBody}>{formatSosCoordinates(sosLocation.latitude, sosLocation.longitude)} · precisão {sosLocation.accuracy ? `${Math.round(sosLocation.accuracy)} m` : "indisponível"}</Text></View></View> : <View style={[styles.responseBox, { backgroundColor: `${C.gold}12`, borderColor: `${C.gold}44` }]}><MaterialIcons name="location-off" size={18} color={C.gold} /><View><Text style={[styles.responseTitle, { color: C.gold }]}>Alerta sem coordenadas</Text><Text style={styles.responseBody}>{sosLocationError ? "Ative a localização nas configurações para melhorar a resposta." : "A central recebeu o protocolo."}</Text></View></View>}</>}{sosApiStatus === "sent" && centralStatus !== "arrived" && centralStatus !== "canceled" ? <Pressable onPress={() => { triggerHaptic(); setCancelVisible(true); }} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}><MaterialIcons name="cancel" size={18} color={C.red} /><Text style={styles.cancelButtonText}>Cancelar alerta SOS</Text></Pressable> : null}<Pressable onPress={() => { setSosVisible(false); if (Platform.OS !== "web") void Linking.openURL(`tel:${centralPhone}`); else Alert.alert(centralName, `Ligação disponível pelo número ${centralPhone}.`); }} style={({ pressed }) => [styles.primaryRedButton, pressed && styles.pressed]}><MaterialIcons name="phone" size={18} color={C.white} /><Text style={styles.buttonText}>Falar com a Central Max</Text></Pressable><Pressable onPress={() => setSosVisible(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.buttonText}>Entendi, estou seguro</Text></Pressable></View></ModalShell>
       <ModalShell visible={profileVisible} onClose={() => setProfileVisible(false)} title="Cadastro do usuário" subtitle="Seus dados ficam salvos neste aparelho">
         <ScrollView style={styles.profileScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.profileModal}>
@@ -900,5 +933,13 @@ const styles = StyleSheet.create({
   profileSyncText: { color: C.success, fontSize: 10, fontWeight: "800", flex: 1 },
   profileSyncError: { backgroundColor: "#F8717112" },
   profileSyncErrorText: { color: C.red, fontSize: 10, fontWeight: "800", flex: 1 },
+  sosPicker: { alignItems: "stretch", gap: 10 },
+  sosTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4 },
+  sosTypeOption: { width: "30%", minHeight: 66, alignItems: "center", justifyContent: "center", gap: 5, backgroundColor: C.panel2, borderColor: C.border, borderWidth: 1, borderRadius: 10, padding: 7 },
+  sosTypeOptionActive: { borderColor: C.gold, backgroundColor: `${C.gold}18` },
+  sosTypeText: { color: C.muted, fontSize: 10, fontWeight: "700", textAlign: "center" },
+  sosTypeTextActive: { color: C.gold },
+  priorityPreview: { flexDirection: "row", alignItems: "center", gap: 9, padding: 10, backgroundColor: `${C.gold}10`, borderColor: `${C.gold}44`, borderWidth: 1, borderRadius: 10 },
+  sosPickerHint: { color: C.muted, fontSize: 10, textAlign: "center" },
   pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
 });

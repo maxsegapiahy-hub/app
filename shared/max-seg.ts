@@ -24,6 +24,21 @@ export const CENTRAL_MAX_PROFILE = {
   status: "online" as const,
 };
 
+export type EmergencyType = "security" | "medical" | "fire" | "accident" | "other";
+export type SosPriority = "low" | "medium" | "high" | "critical";
+
+export const SOS_PRIORITY_RULES: Record<EmergencyType, { priority: SosPriority; label: string; explanation: string }> = {
+  security: { priority: "critical", label: "Crítica", explanation: "Risco imediato à integridade ou segurança." },
+  fire: { priority: "critical", label: "Crítica", explanation: "Incêndio ou risco de propagação exige despacho imediato." },
+  medical: { priority: "high", label: "Alta", explanation: "Urgência de saúde com necessidade de pronta resposta." },
+  accident: { priority: "high", label: "Alta", explanation: "Acidente pode exigir atendimento e isolamento do local." },
+  other: { priority: "medium", label: "Média", explanation: "Ocorrência geral para triagem da Central." },
+};
+
+export function getSosPriority(type: EmergencyType) {
+  return SOS_PRIORITY_RULES[type];
+}
+
 export function getSosRetryDelayMs(attempt: number): number {
   return Math.min(800 * 2 ** Math.max(attempt - 1, 0), 3200);
 }

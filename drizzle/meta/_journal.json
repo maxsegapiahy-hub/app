@@ -15,6 +15,13 @@
       "when": 1789445925767,
       "tag": "0001_huge_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1789522192542,
+      "tag": "0002_colorful_captain_britain",
+      "breakpoints": true
     }
   ]
 }
