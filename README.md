@@ -17,6 +17,6 @@ Este é um PWA (Progressive Web App) voltado para proteção e saúde na cidade 
 ## 🚀 Próximos Passos do Desenvolvimento:
 1. Verificar se precisa completar o código HTML que foi interrompido na seção "Protection Status Widget".
 2. Criar as outras abas/telas do aplicativo (Ex: Histórico, Configurações, Tela de SOS).
-3. Configurar os arquivos PWA (`manifest.json` e `sw.js` para o Service Worker) para permitir a instalação no celular.
+3. Configurar os arquivos PWA (`manifest.json` e `sw.js` para o Service Worker) para permitir a instalação no celular ou tablet.
 4. Verificar erros, testar e corrijir
 
